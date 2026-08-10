@@ -1,0 +1,15 @@
+name: GridProof keep-warm
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping-api:
+    name: Ping deployed API health endpoint
+    runs-on: ubuntu-latest
+    if: ${{ vars.GRIDPROOF_API_HEALTH_URL != '' }}
+    steps:
+      - name: Ping API
+        run: curl --fail --show-error --silent --max-time 20 "${{ vars.GRIDPROOF_API_HEALTH_URL }}"

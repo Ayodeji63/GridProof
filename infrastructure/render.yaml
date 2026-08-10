@@ -1,0 +1,90 @@
+services:
+  - type: web
+    name: gridproof-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./infrastructure/docker/api.Dockerfile
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: API_VERSION
+        value: 0.1.0
+      - key: CORS_ORIGINS
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: GRIDPROOF_EVIDENCE_MODE
+        value: hybrid
+      - key: INGEST_RATE_LIMIT_MAX
+        value: 60
+      - key: INGEST_RATE_LIMIT_WINDOW_MS
+        value: 60000
+      - key: REDIS_RATE_LIMIT_TIMEOUT_MS
+        value: 500
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: GRIDPROOF_AUTH_INVITE_CODE
+        sync: false
+      - key: TELEMETRY_HMAC_SECRET
+        sync: false
+      - key: WHATSAPP_WEBHOOK_SECRET
+        sync: false
+      - key: RELAYER_PRIVATE_KEY
+        sync: false
+      - key: BOTCHAIN_RPC_URL
+        sync: false
+      - key: BOTCHAIN_CHAIN_ID
+        sync: false
+      - key: BOTCHAIN_EXPLORER_BASE_URL
+        sync: false
+      - key: BOTCHAIN_NODE_REGISTRY_ADDRESS
+        sync: false
+      - key: BOTCHAIN_UPTIME_ATTESTATION_ADDRESS
+        sync: false
+      - key: BOTCHAIN_REPUTATION_ESCROW_ADDRESS
+        sync: false
+      - key: NOTIFICATION_WEBHOOK_URL
+        sync: false
+      - key: NOTIFICATION_WEBHOOK_TOKEN
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: SENTRY_ENVIRONMENT
+        value: production
+      - key: SENTRY_RELEASE
+        value: gridproof-api@0.1.0
+      - key: SENTRY_TRACES_SAMPLE_RATE
+        value: 0
+
+  - type: web
+    name: gridproof-agent-worker
+    runtime: docker
+    plan: free
+    dockerfilePath: ./infrastructure/docker/agent-worker.Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4101
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: LLM_BASE_URL
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_ANALYSIS_MODEL
+        value: fast-free-model
+      - key: LLM_VERIFICATION_MODEL
+        value: strong-free-model
+      - key: LOG_LEVEL
+        value: info

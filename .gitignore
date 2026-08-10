@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+.turbo/
+.env
+.env.*
+!.env.example
+coverage/
+playwright-report/
+test-results/
+apps/web/.vite/
+apps/api/data/
+infrastructure/.tmp/
+smart-contracts/cache/
+smart-contracts/out/
+smart-contracts/lib/

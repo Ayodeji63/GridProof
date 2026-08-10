@@ -1,0 +1,13 @@
+# foundry.toml
+[profile.default] 
+src= "src"       # matches your existing packages/contracts/contracts/ layout
+out = "out"
+libs = ["node_modules", "lib"]
+remappings = [
+  "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts"
+]
+solc_version = "0.8.24"
+optimizer = true
+optimizer_runs = 200
+# Deploy.s.sol writes the deployment manifest consumed by packages/blockchain-client.
+fs_permissions = [{ access = "read-write", path = "./deployments" }]

@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-09T18:00:00.000Z",
+  "project": "GridProof",
+  "rehearsals": [
+    {
+      "id": "live-rehearsal-1",
+      "completedAt": "2026-08-09T16:00:00.000Z",
+      "operator": "GridProof demo operator",
+      "mode": "hybrid",
+      "stack": "deployed",
+      "result": "pass",
+      "publicWebUrl": "https://gridproof-demo.example",
+      "apiBaseUrl": "https://gridproof-api.example/api/v1",
+      "workerBaseUrl": "https://gridproof-worker.example",
+      "proofUrl": "https://gridproof-demo.example/proof/11111111-1111-4111-8111-111111111111/latest",
+      "botChainExplorerTxUrl": "https://explorer.botchain.example/tx/0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "deploymentVerifyLog": "artifacts/demo-rehearsals/live-rehearsal-1/deployment-verify.log",
+      "contractManifestPath": "smart-contracts/deployments/botchainTestnet.json",
+      "screenshots": [
+        {
+          "label": "dashboard",
+          "urlOrPath": "artifacts/demo-rehearsals/live-rehearsal-1/dashboard.png"
+        },
+        {
+          "label": "proof-explorer",
+          "urlOrPath": "artifacts/demo-rehearsals/live-rehearsal-1/proof-explorer.png"
+        },
+        {
+          "label": "bot-chain-explorer",
+          "urlOrPath": "artifacts/demo-rehearsals/live-rehearsal-1/bot-chain-explorer.png"
+        },
+        {
+          "label": "operations",
+          "urlOrPath": "artifacts/demo-rehearsals/live-rehearsal-1/operations.png"
+        }
+      ],
+      "notes": "Record any manual intervention here."
+    },
+    {
+      "id": "live-rehearsal-2",
+      "completedAt": "2026-08-09T17:00:00.000Z",
+      "operator": "GridProof demo operator",
+      "mode": "hybrid",
+      "stack": "deployed",
+      "result": "pass",
+      "publicWebUrl": "https://gridproof-demo.example",
+      "apiBaseUrl": "https://gridproof-api.example/api/v1",
+      "workerBaseUrl": "https://gridproof-worker.example",
+      "proofUrl": "https://gridproof-demo.example/proof/11111111-1111-4111-8111-111111111111/latest",
+      "botChainExplorerTxUrl": "https://explorer.botchain.example/tx/0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "deploymentVerifyLog": "artifacts/demo-rehearsals/live-rehearsal-2/deployment-verify.log",
+      "contractManifestPath": "smart-contracts/deployments/botchainTestnet.json",
+      "screenshots": [
+        {
+          "label": "dashboard",
+          "urlOrPath": "artifacts/demo-rehearsals/live-rehearsal-2/dashboard.png"
+        },
+        {
+          "label": "proof-explorer",
+          "urlOrPath": "artifacts/demo-rehearsals/live-rehearsal-2/proof-explorer.png"
+        },
+        {
+          "label": "bot-chain-explorer",
+          "urlOrPath": "artifacts/demo-rehearsals/live-rehearsal-2/bot-chain-explorer.png"
+        },
+        {
+          "label": "operations",
+          "urlOrPath": "artifacts/demo-rehearsals/live-rehearsal-2/operations.png"
+        }
+      ],
+      "notes": "Record any manual intervention here."
+    }
+  ],
+  "backup": {
+    "recordingUrlOrPath": "artifacts/demo-rehearsals/backup/gridproof-demo-backup.mp4",
+    "scriptVersion": "docs/demo-script.md@2026-08-09",
+    "screenshots": [
+      {
+        "label": "dashboard",
+        "urlOrPath": "artifacts/demo-rehearsals/backup/dashboard.png"
+      },
+      {
+        "label": "proof-explorer",
+        "urlOrPath": "artifacts/demo-rehearsals/backup/proof-explorer.png"
+      },
+      {
+        "label": "bot-chain-explorer",
+        "urlOrPath": "artifacts/demo-rehearsals/backup/bot-chain-explorer.png"
+      }
+    ]
+  }
+}

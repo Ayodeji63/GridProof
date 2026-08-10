@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node", "vitest"]
+  },
+  "include": ["test/**/*.ts", "playwright/**/*.ts", "playwright.config.ts"]
+}

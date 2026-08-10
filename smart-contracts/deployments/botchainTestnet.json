@@ -1,0 +1,18 @@
+{
+  "network": "botchainTestnet",
+  "chainId": "968",
+  "deployedAt": "2026-08-09T18:49:52Z",
+  "admin": "0x54509b12aB6Ad9D0F3590eD241980433ffCCFe2C",
+  "relayer": "0x54509b12aB6Ad9D0F3590eD241980433ffCCFe2C",
+  "contracts": {
+    "NodeRegistry": "0x1Fc7e41E48A9a96a37C5dFA9B882e20c584cCaA1",
+    "UptimeAttestation": "0xf8f4061E0D021bDB5f35747Be15c8e630245F66F",
+    "ReputationEscrow": "0x354f30B7f88CD8544d689057034f9B20e079dFB6"
+  },
+  "params": {
+    "epochDurationSeconds": "3600",
+    "slashPolicyCap": "500000000000000000",
+    "minimumStake": "100000000000000000",
+    "withdrawCooldownSeconds": "259200"
+  }
+}

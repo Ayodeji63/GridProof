@@ -1,0 +1,16 @@
+.git
+.github
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules
+**/dist
+**/.turbo
+**/coverage
+**/test-results
+**/playwright-report
+gridproof-contracts/packages/contracts/artifacts
+gridproof-contracts/packages/contracts/cache
+smart-contracts/out
+smart-contracts/cache
+README.assets
