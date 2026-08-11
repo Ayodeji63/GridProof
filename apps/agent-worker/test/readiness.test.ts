@@ -33,8 +33,8 @@ describe("agent worker readiness", () => {
       REDIS_URL: "rediss://default:secret@redis.gridproof.test:6379",
       LLM_BASE_URL: "https://llm.gridproof.test",
       LLM_API_KEY: "llm-secret",
-      LLM_ANALYSIS_MODEL: "fast-free-model",
-      LLM_VERIFICATION_MODEL: "strong-free-model"
+      LLM_ANALYSIS_MODEL: "llama-3.1-8b-instant",
+      LLM_VERIFICATION_MODEL: "qwen3-32b"
     }, true, new Date("2026-08-09T12:00:00.000Z"));
     const serialized = JSON.stringify(readiness);
 
@@ -45,5 +45,27 @@ describe("agent worker readiness", () => {
     expect(serialized).not.toContain("db.gridproof.test");
     expect(serialized).not.toContain("redis.gridproof.test");
     expect(serialized).not.toContain("llm.gridproof.test");
+  });
+
+  it("fails when model names are still the code's placeholder defaults", () => {
+    const readiness = workerReadinessSnapshot({
+      DATABASE_URL: "postgres://gridproof:secret@db.gridproof.test:5432/gridproof",
+      REDIS_URL: "rediss://default:secret@redis.gridproof.test:6379",
+      LLM_BASE_URL: "https://llm.gridproof.test",
+      LLM_API_KEY: "llm-secret",
+      LLM_ANALYSIS_MODEL: "fast-free-model",
+      LLM_VERIFICATION_MODEL: "strong-free-model"
+    }, true, new Date("2026-08-09T12:00:00.000Z"));
+
+    expect(readiness.ok).toBe(false);
+    expect(readiness.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "llm_models",
+          status: "fail",
+          missingEnv: ["LLM_ANALYSIS_MODEL", "LLM_VERIFICATION_MODEL"]
+        })
+      ])
+    );
   });
 });

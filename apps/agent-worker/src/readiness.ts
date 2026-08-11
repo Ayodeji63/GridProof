@@ -1,3 +1,5 @@
+import { PLACEHOLDER_MODELS } from "./llm-config.js";
+
 export type WorkerReadinessCheck = {
   name: string;
   status: "pass" | "fail";
@@ -47,7 +49,12 @@ export function workerReadinessSnapshot(
       env,
       keys: ["LLM_ANALYSIS_MODEL", "LLM_VERIFICATION_MODEL"],
       passMessage: "Analysis and verification model names are configured.",
-      missingMessage: "LLM_ANALYSIS_MODEL and LLM_VERIFICATION_MODEL should be explicit for reproducible demo behavior."
+      missingMessage: "LLM_ANALYSIS_MODEL and LLM_VERIFICATION_MODEL should be explicit for reproducible demo behavior.",
+      // A placeholder is worse than a blank: it looks configured but no router
+      // serves it, so every review fails and the orchestrator reports escalate.
+      rejectValues: PLACEHOLDER_MODELS,
+      rejectMessage:
+        "LLM_ANALYSIS_MODEL/LLM_VERIFICATION_MODEL still hold placeholder names. Set concrete model IDs from your router's catalog (GET /v1/models)."
     })
   ];
   const ok = checks.every((check) => check.status === "pass");
@@ -79,15 +86,39 @@ function configuredCheck(input: {
   keys: string[];
   passMessage: string;
   missingMessage: string;
+  rejectValues?: readonly string[];
+  rejectMessage?: string;
 }): WorkerReadinessCheck {
   const missingEnv = input.keys.filter((key) => !hasValue(input.env[key]));
+  if (missingEnv.length > 0) {
+    return {
+      name: input.name,
+      status: "fail",
+      required: true,
+      message: input.missingMessage,
+      missingEnv
+    };
+  }
+
+  const placeholderEnv = input.rejectValues
+    ? input.keys.filter((key) => input.rejectValues?.includes(input.env[key]?.trim() ?? ""))
+    : [];
+  if (placeholderEnv.length > 0) {
+    return {
+      name: input.name,
+      status: "fail",
+      required: true,
+      message: input.rejectMessage ?? input.missingMessage,
+      missingEnv: placeholderEnv
+    };
+  }
 
   return {
     name: input.name,
-    status: missingEnv.length === 0 ? "pass" : "fail",
+    status: "pass",
     required: true,
-    message: missingEnv.length === 0 ? input.passMessage : input.missingMessage,
-    missingEnv
+    message: input.passMessage,
+    missingEnv: []
   };
 }
 

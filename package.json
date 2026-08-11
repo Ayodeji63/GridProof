@@ -17,6 +17,8 @@
     "scripts:typecheck": "tsc -p scripts/tsconfig.json --noEmit",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed-demo-data.ts",
+    "llm:preflight": "tsx scripts/preflight-llm.ts",
+    "simulate:hardware": "tsx scripts/simulate-hardware.ts",
     "deployment:contracts": "tsx scripts/verify-contract-manifest.ts",
     "deployment:data": "tsx scripts/verify-data-services.ts",
     "deployment:evidence": "tsx scripts/verify-demo-evidence.ts",

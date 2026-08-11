@@ -261,6 +261,7 @@ describe("shared API schemas", () => {
           decision: "approve",
           hypothesis: "Candidate outage passed deterministic confidence threshold.",
           supportingEvidenceIds: [evidenceId],
+          review: null,
           createdAt: now,
           candidateCreatedAt: candidate.createdAt
         }

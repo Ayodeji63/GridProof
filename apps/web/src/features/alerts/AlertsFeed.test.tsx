@@ -27,6 +27,7 @@ const alert = {
   decision: "approve" as const,
   hypothesis: "Candidate outage passed deterministic confidence threshold.",
   supportingEvidenceIds: ["6a670093-7823-44e1-80e4-ac608f9e75bd"],
+  review: null,
   createdAt: "2026-08-09T12:03:00.000Z",
   candidateCreatedAt: "2026-08-09T12:02:00.000Z"
 };
@@ -49,13 +50,39 @@ describe("AlertsFeed", () => {
 
     container = renderAlertsFeed();
 
-    await waitFor(() => expect(container?.textContent).toContain("Possible outage"));
+    await waitFor(() => expect(container?.textContent).toContain("Outage"));
 
-    expect(container.textContent).toContain("95% confidence");
+    expect(container.textContent).toContain("95% automated confidence");
+    expect(container.textContent).toContain("auto-approved");
     expect(container.textContent).toContain(alert.hypothesis);
     expect(container.textContent).toContain(alert.supportingEvidenceIds[0]);
     const link = container.querySelector("a");
     expect(link?.getAttribute("href")).toBe(`/proof/${alert.zoneId}/latest`);
+  });
+
+  it("separates reviewer approval from the automated assessment", async () => {
+    alertsMock.mockResolvedValue({
+      alerts: [{
+        ...alert,
+        confidence: 0.65,
+        hypothesis: "Candidate outage is plausible but below auto-approval confidence; reviewer confirmation required.",
+        review: {
+          initialDecision: "escalate",
+          decision: "approve",
+          note: "Field crew confirmed the outage.",
+          reviewedAt: "2026-08-09T12:10:00.000Z"
+        }
+      }]
+    });
+
+    container = renderAlertsFeed();
+
+    await waitFor(() => expect(container?.textContent).toContain("reviewer approved"));
+    expect(container.textContent).toContain("65% automated confidence");
+    expect(container.textContent).toContain("Initial policy decision: escalated");
+    expect(container.textContent).toContain("Initial assessment:");
+    expect(container.textContent).toContain("Reviewer confirmation: Field crew confirmed the outage.");
+    expect(container.textContent).toContain("Reviewed2026-08-09T12:10:00.000Z");
   });
 
   it("renders an empty state when no public alerts exist", async () => {

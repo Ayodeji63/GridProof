@@ -1,4 +1,5 @@
 import { Pool, type PoolClient } from "pg";
+import { DEMO_NATIONAL_ZONES } from "../packages/shared-types/src/demo-zones.js";
 
 const databaseUrl = process.env.DATABASE_URL ?? "postgres://gridproof:gridproof@localhost:5432/gridproof";
 const pool = new Pool({ connectionString: databaseUrl });
@@ -26,8 +27,8 @@ const ids = {
 } as const;
 
 const wallets = {
-  sensor: "0x1111111111111111111111111111111111111111",
-  reporter: "0x2222222222222222222222222222222222222222"
+  sensor: "0x54509b12aB6Ad9D0F3590eD241980433ffCCFe2C",
+  reporter: "0x3cfFEC3f8fdaE6Dff40A1CA2FbFc8dcF003669D4",
 } as const;
 
 async function main() {
@@ -72,12 +73,26 @@ async function seedUsers(client: PoolClient): Promise<void> {
 }
 
 async function seedZones(client: PoolClient): Promise<void> {
+  // The first two rows keep their historical ids because the rest of the demo
+  // seed (providers, evidence, epoch scores) is keyed to them; the remainder
+  // give the dashboard coverage across all 11 DisCos.
+  const zones = DEMO_NATIONAL_ZONES.map((zone, index) => ({
+    ...zone,
+    id: index === 0 ? ids.zoneA : index === 1 ? ids.zoneB : zone.id
+  }));
+
+  const values = zones
+    .map((_, index) => {
+      const base = index * 7;
+      return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7})`;
+    })
+    .join(",\n        ");
+
   await client.query(
     `
       insert into zones (id, zone_key, name, discos_feeder_code, region, centroid_lat, centroid_lng)
       values
-        ($1, $2, 'Ogbomoso Feeder A', 'IBEDC-OGB-A', 'Oyo', 8.133, 4.25),
-        ($3, $4, 'Ogbomoso Feeder B', 'IBEDC-OGB-B', 'Oyo', 8.151, 4.238)
+        ${values}
       on conflict (id) do update
       set zone_key = excluded.zone_key,
           name = excluded.name,
@@ -86,7 +101,15 @@ async function seedZones(client: PoolClient): Promise<void> {
           centroid_lat = excluded.centroid_lat,
           centroid_lng = excluded.centroid_lng
     `,
-    [ids.zoneA, `0x${"a".repeat(64)}`, ids.zoneB, `0x${"b".repeat(64)}`]
+    zones.flatMap((zone) => [
+      zone.id,
+      zone.zoneKey,
+      zone.name,
+      zone.discosFeederCode,
+      zone.region,
+      zone.centroid.lat,
+      zone.centroid.lng
+    ])
   );
 }
 

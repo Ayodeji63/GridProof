@@ -1,9 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { AgentDecision, AlertItem, CandidateEvent, ChainCommitment, EpochScore, EvidenceEvent, User } from "@gridproof/shared-types";
+import { blockNumberFromDatabase } from "../../lib/db-values.js";
 import { domainEvents } from "../../lib/events.js";
 import { counters } from "../../lib/metrics.js";
 import { isDatabaseConfigured, query } from "../../lib/db.js";
-import { appendAuditLog } from "../audit/service.js";
+import { appendAuditLog, listMemoryAuditLogs } from "../audit/service.js";
 import { enqueueAgentReviewJob } from "../jobs/queue.js";
 
 const AUTO_APPROVE_THRESHOLD = 0.85;
@@ -109,7 +110,7 @@ export async function listAlertItems(limit = 50): Promise<AlertItem[]> {
     return Array.from(memoryDecisions.values())
       .map((decision) => {
         const candidate = memoryCandidatesById.get(decision.candidateEventId);
-        return candidate ? alertFromDecision(decision, candidate) : null;
+        return candidate ? alertFromDecision(decision, candidate, memoryReviewForDecision(decision.id)) : null;
       })
       .filter((alert): alert is AlertItem => alert !== null)
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
@@ -122,9 +123,20 @@ export async function listAlertItems(limit = 50): Promise<AlertItem[]> {
              d.decision, d.hypothesis, d.supporting_evidence_ids, d.notification_draft,
              d.reasoning_trace, d.created_at as decision_created_at,
              c.id as candidate_id, c.zone_id, c.status, c.confidence as candidate_confidence,
-             c.window_start, c.window_end, c.evidence_event_ids, c.created_at as candidate_created_at
+             c.window_start, c.window_end, c.evidence_event_ids, c.created_at as candidate_created_at,
+             review.initial_decision, review.review_note, review.reviewed_at
       from agent_decisions d
       join candidate_events c on c.id = d.candidate_event_id
+      left join lateral (
+        select al.before->'decision'->>'decision' as initial_decision,
+               al.after->>'note' as review_note,
+               al.created_at as reviewed_at
+        from audit_logs al
+        where al.action = 'review.decision_resolved'
+          and al.after->'decision'->>'id' = d.id::text
+        order by al.created_at desc
+        limit 1
+      ) review on true
       order by d.created_at desc
       limit $1
     `,
@@ -133,7 +145,7 @@ export async function listAlertItems(limit = 50): Promise<AlertItem[]> {
 
   return result.rows.map((row) => {
     const item = mapDecisionWithCandidateRow(row);
-    return alertFromDecision(item, item.candidate);
+    return alertFromDecision(item, item.candidate, reviewFromDecisionRow(row));
   });
 }
 
@@ -143,6 +155,8 @@ export async function resolveReviewDecision(
   note: string,
   reviewer?: Pick<User, "id" | "role" | "phoneOrEmail">
 ): Promise<PipelineResult> {
+  const reviewedAt = new Date().toISOString();
+
   if (!isDatabaseConfigured()) {
     const current = Array.from(memoryDecisions.values()).find((decision) => decision.id === decisionId);
     if (!current) throw Object.assign(new Error("Review item not found"), { statusCode: 404, code: "REVIEW_NOT_FOUND" });
@@ -150,7 +164,11 @@ export async function resolveReviewDecision(
     const updated = {
       ...current,
       decision: reviewDecision,
-      hypothesis: `${current.hypothesis} Reviewer note: ${note}`
+      hypothesis: `${current.hypothesis} Reviewer note: ${note}`,
+      reasoningTrace: {
+        ...current.reasoningTrace,
+        review: { initialDecision: current.decision, decision: reviewDecision, note, reviewedAt }
+      }
     } satisfies AgentDecision;
     memoryDecisions.set(current.candidateEventId, updated);
     await auditReviewDecision(current, updated, note, reviewer);
@@ -185,18 +203,29 @@ export async function resolveReviewDecision(
     [decisionId]
   );
   const beforeDecision = beforeResult.rows[0] ? mapDecisionRow(beforeResult.rows[0]) : null;
+  if (!beforeDecision) {
+    throw Object.assign(new Error("Review item not found"), { statusCode: 404, code: "REVIEW_NOT_FOUND" });
+  }
 
   const updated = await query<AgentDecisionRow>(
     `
       update agent_decisions
       set decision = $2,
           hypothesis = hypothesis || ' Reviewer note: ' || $3,
-          notification_draft = $3
+          notification_draft = $3,
+          reasoning_trace = reasoning_trace || $4::jsonb
       where id = $1
       returning id, candidate_event_id, agent_name, confidence, decision, hypothesis,
                 supporting_evidence_ids, notification_draft, reasoning_trace, created_at
     `,
-    [decisionId, reviewDecision, note]
+    [
+      decisionId,
+      reviewDecision,
+      note,
+      JSON.stringify({
+        review: { initialDecision: beforeDecision.decision, decision: reviewDecision, note, reviewedAt }
+      })
+    ]
   );
 
   const decision = updated.rows[0];
@@ -351,7 +380,7 @@ async function upsertDatabasePendingCommitment(epochScore: EpochScore): Promise<
     id: string;
     epoch_score_id: string;
     tx_hash: string | null;
-    block_number: number | null;
+    block_number: string | null;
     status: "pending" | "confirmed" | "failed";
     explorer_url: string | null;
     created_at: Date;
@@ -382,7 +411,7 @@ async function upsertDatabasePendingCommitment(epochScore: EpochScore): Promise<
     id: row.id,
     epochScoreId: row.epoch_score_id,
     txHash: row.tx_hash,
-    blockNumber: row.block_number,
+    blockNumber: blockNumberFromDatabase(row.block_number),
     status: row.status,
     explorerUrl: row.explorer_url,
     createdAt: row.created_at.toISOString(),
@@ -424,11 +453,7 @@ async function findDatabaseCandidate(candidateId: string): Promise<CandidateEven
 }
 
 function decisionForCandidate(candidate: CandidateEvent): AgentDecision {
-  const decision = candidate.confidence >= AUTO_APPROVE_THRESHOLD
-    ? "approve"
-    : candidate.confidence >= ESCALATE_THRESHOLD
-      ? "escalate"
-      : "reject";
+  const decision = decisionForConfidence(candidate.confidence);
 
   return {
     id: randomUUID(),
@@ -449,7 +474,11 @@ function decisionForCandidate(candidate: CandidateEvent): AgentDecision {
   };
 }
 
-function alertFromDecision(decision: AgentDecision, candidate: CandidateEvent): AlertItem {
+function alertFromDecision(
+  decision: AgentDecision,
+  candidate: CandidateEvent,
+  review: AlertItem["review"]
+): AlertItem {
   return {
     id: decision.id,
     candidateEventId: candidate.id,
@@ -457,11 +486,111 @@ function alertFromDecision(decision: AgentDecision, candidate: CandidateEvent): 
     status: candidate.status,
     confidence: decision.confidence,
     decision: decision.decision,
-    hypothesis: decision.hypothesis,
+    hypothesis: review ? initialHypothesis(decision.hypothesis, review.note) : decision.hypothesis,
     supportingEvidenceIds: decision.supportingEvidenceIds,
+    review,
     createdAt: decision.createdAt,
     candidateCreatedAt: candidate.createdAt
   };
+}
+
+function initialHypothesis(hypothesis: string, reviewNote: string): string {
+  const suffix = ` Reviewer note: ${reviewNote}`;
+  return hypothesis.endsWith(suffix) ? hypothesis.slice(0, -suffix.length) : hypothesis;
+}
+
+function memoryReviewForDecision(decisionId: string): AlertItem["review"] {
+  const audit = listMemoryAuditLogs("review.decision_resolved")
+    .find((item) => nestedString(item.after, "decision", "id") === decisionId);
+  if (!audit) return null;
+
+  const initialDecision = nestedString(audit.before, "decision", "decision");
+  const decision = nestedString(audit.after, "decision", "decision");
+  const note = directString(audit.after, "note");
+  if (!isAgentDecision(initialDecision) || (decision !== "approve" && decision !== "reject") || !note) return null;
+
+  return { initialDecision, decision, note, reviewedAt: audit.createdAt };
+}
+
+function reviewFromDecisionRow(row: DecisionWithCandidateRow): AlertItem["review"] {
+  const tracedReview = reviewFromReasoningTrace(row.reasoning_trace);
+  if (tracedReview) return tracedReview;
+
+  if (
+    isAgentDecision(row.initial_decision) &&
+    (row.decision === "approve" || row.decision === "reject") &&
+    row.review_note &&
+    row.reviewed_at
+  ) {
+    return {
+      initialDecision: row.initial_decision,
+      decision: row.decision,
+      note: row.review_note,
+      reviewedAt: row.reviewed_at.toISOString()
+    };
+  }
+
+  // Older/demo reviews can lack an audit row (for example, when a synthetic
+  // reviewer user is not present for the audit-log foreign key). The decision
+  // row still carries the review note. Only treat it as a review when the final
+  // decision differs from the deterministic confidence gate, so an ordinary
+  // auto-approval notification is never mislabeled as human review.
+  const initialDecision = decisionForConfidence(Number(row.decision_confidence));
+  if (
+    initialDecision === row.decision ||
+    (row.decision !== "approve" && row.decision !== "reject") ||
+    !row.notification_draft
+  ) return null;
+
+  return {
+    initialDecision,
+    decision: row.decision,
+    note: row.notification_draft,
+    reviewedAt: null
+  };
+}
+
+function reviewFromReasoningTrace(trace: Record<string, unknown>): AlertItem["review"] {
+  const value = trace.review;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const review = value as Record<string, unknown>;
+  const initialDecision = typeof review.initialDecision === "string" ? review.initialDecision : null;
+  const decision = typeof review.decision === "string" ? review.decision : null;
+  const note = typeof review.note === "string" ? review.note : null;
+  const reviewedAt = typeof review.reviewedAt === "string" ? review.reviewedAt : null;
+
+  if (
+    !isAgentDecision(initialDecision) ||
+    (decision !== "approve" && decision !== "reject") ||
+    !note ||
+    !reviewedAt
+  ) return null;
+
+  return { initialDecision, decision, note, reviewedAt };
+}
+
+function decisionForConfidence(confidence: number): AgentDecision["decision"] {
+  return confidence >= AUTO_APPROVE_THRESHOLD
+    ? "approve"
+    : confidence >= ESCALATE_THRESHOLD
+      ? "escalate"
+      : "reject";
+}
+
+function isAgentDecision(value: string | null): value is AgentDecision["decision"] {
+  return value === "approve" || value === "escalate" || value === "reject";
+}
+
+function directString(value: Record<string, unknown> | null, key: string): string | null {
+  const field = value?.[key];
+  return typeof field === "string" && field.length > 0 ? field : null;
+}
+
+function nestedString(value: Record<string, unknown> | null, objectKey: string, fieldKey: string): string | null {
+  const nested = value?.[objectKey];
+  if (!nested || typeof nested !== "object" || Array.isArray(nested)) return null;
+  const field = (nested as Record<string, unknown>)[fieldKey];
+  return typeof field === "string" && field.length > 0 ? field : null;
 }
 
 async function auditAgentDecision(
@@ -652,6 +781,9 @@ type DecisionWithCandidateRow = AgentDecisionRow & {
   window_end: Date;
   evidence_event_ids: string[];
   candidate_created_at: Date;
+  initial_decision: string | null;
+  review_note: string | null;
+  reviewed_at: Date | null;
 };
 
 function mapDecisionRow(row: AgentDecisionRow): AgentDecision {

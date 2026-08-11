@@ -38,17 +38,28 @@ export function AlertsFeed() {
       ) : null}
 
       <div className="notification-list">
-        {alerts.map((alert) => (
-          <article className="review-item notification-item" key={alert.id}>
+        {alerts.map((alert) => {
+          const decisionLabel = alert.review
+            ? `reviewer ${pastTenseDecision(alert.review.decision)}`
+            : alert.decision === "approve"
+              ? "auto-approved"
+              : alert.decision;
+
+          return (
+            <article className="review-item notification-item" key={alert.id}>
             <div>
               <div className="badge-row">
                 <span className={`status-badge ${alert.status === "restored" ? "active" : ""}`}>{alert.status}</span>
-                <span className="status-badge">{alert.decision}</span>
-                <span className="status-badge">{Math.round(alert.confidence * 100)}% confidence</span>
+                <span className="status-badge">{decisionLabel}</span>
+                <span className="status-badge">{Math.round(alert.confidence * 100)}% automated confidence</span>
               </div>
               <p className="eyebrow">{alert.zoneId}</p>
-              <h2>{alert.status === "outage" ? "Possible outage" : "Possible restoration"}</h2>
-              <p>{alert.hypothesis}</p>
+              <h2>{alert.status === "outage" ? "Outage" : "Restoration"}</h2>
+              {alert.review ? (
+                <p><strong>Initial policy decision:</strong> {pastTenseDecision(alert.review.initialDecision)}</p>
+              ) : null}
+              <p><strong>Initial assessment:</strong> {alert.hypothesis}</p>
+              {alert.review ? <p><strong>Reviewer confirmation:</strong> {alert.review.note}</p> : null}
               <dl>
                 <div>
                   <dt>Candidate</dt>
@@ -59,9 +70,15 @@ export function AlertsFeed() {
                   <dd className="mono">{alert.supportingEvidenceIds.join(", ")}</dd>
                 </div>
                 <div>
-                  <dt>Published</dt>
+                  <dt>Automated assessment</dt>
                   <dd>{alert.createdAt}</dd>
                 </div>
+                {alert.review?.reviewedAt ? (
+                  <div>
+                    <dt>Reviewed</dt>
+                    <dd>{alert.review.reviewedAt}</dd>
+                  </div>
+                ) : null}
               </dl>
             </div>
             <div className="action-row">
@@ -70,9 +87,16 @@ export function AlertsFeed() {
                 Open proof
               </Link>
             </div>
-          </article>
-        ))}
+            </article>
+          );
+        })}
       </div>
     </main>
   );
+}
+
+function pastTenseDecision(decision: "approve" | "escalate" | "reject"): string {
+  if (decision === "approve") return "approved";
+  if (decision === "escalate") return "escalated";
+  return "rejected";
 }

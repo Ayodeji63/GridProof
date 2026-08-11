@@ -458,7 +458,7 @@ Outage detection itself is **not** an LLM problem: "no heartbeat for 6 minutes f
 - *Tools available*: `getTelemetryWindow(zoneId, range)`, `getHistoricalBaseline(zoneId)`, `getProviderMetadata(providerId)`, `getConflictingReports(zoneId, range)` — all **read-only**.
 - *Memory/state*: stateless per call; all context passed explicitly in the prompt (no persistent agent memory needed at this scale — avoids an unnecessary vector DB dependency).
 - *Trigger*: `candidate.detected` event where deterministic confidence is below the auto-approve threshold (e.g. < 0.85) but above the auto-reject floor (e.g. > 0.2).
-- *Guardrails*: 8-second timeout; single retry; output must validate against schema or the call is treated as a failure (→ escalate to human).
+- *Guardrails*: request timeout from `LLM_TIMEOUT_MS` (default 20 s — a failover router spends real time before first token); single retry; output must validate against schema or the call is treated as a failure (→ escalate to human).
 
 **2. Evidence Verification & Blockchain-Reporting Agent**
 - *Objective*: take the Anomaly Analysis Agent's hypothesis + confidence and the deterministic policy rules, decide `approve | escalate | reject`, and if approved, draft the evidence-batch summary and the reporter/provider notification text.

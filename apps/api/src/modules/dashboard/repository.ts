@@ -1,4 +1,5 @@
 import type { CandidateEvent, ChainCommitment, EpochScore, ProofResponse, ZonesResponse, ZoneHistoryResponse } from "@gridproof/shared-types";
+import { blockNumberFromDatabase } from "../../lib/db-values.js";
 import { isDatabaseConfigured, query } from "../../lib/db.js";
 import { computeZoneHealthTrend } from "../detection/trend.js";
 import { listMemoryCandidates } from "../ingestion/store.js";
@@ -177,7 +178,7 @@ export async function getProof(zoneId: string, epoch: string): Promise<ProofResp
     epoch_created_at: Date;
     commitment_id: string | null;
     tx_hash: string | null;
-    block_number: number | null;
+    block_number: string | null;
     status: "pending" | "confirmed" | "failed" | null;
     explorer_url: string | null;
     commitment_created_at: Date | null;
@@ -214,7 +215,7 @@ export async function getProof(zoneId: string, epoch: string): Promise<ProofResp
         id: row.commitment_id,
         epochScoreId: row.epoch_id,
         txHash: row.tx_hash,
-        blockNumber: row.block_number,
+        blockNumber: blockNumberFromDatabase(row.block_number),
         status: row.status,
         explorerUrl: row.explorer_url,
         createdAt: row.commitment_created_at.toISOString(),

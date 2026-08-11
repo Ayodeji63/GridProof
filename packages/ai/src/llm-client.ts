@@ -28,7 +28,11 @@ export async function completeJson<T>(
   schema: z.ZodSchema<T>
 ): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 8_000);
+  // Callers should pass timeoutMs explicitly (the worker does, from
+  // LLM_TIMEOUT_MS). This fallback matches that default so a caller who omits
+  // it does not silently get a tighter budget than the docs promise: a router
+  // that fails over between providers can spend seconds before first token.
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 20_000);
 
   try {
     const response = await fetch(`${options.baseUrl.replace(/\/$/, "")}/v1/chat/completions`, {

@@ -13,25 +13,44 @@ the agents only interpret a candidate and gate whether it reaches the chain.
 `agent-review` queue. Each job carries a `candidate`, its `evidence`, and the
 `providers` involved (`orchestrator.ts:12-16`).
 
-The worker builds two client configs from env (`index.ts:30-40`) — same base URL
-and API key, different model per agent:
+The worker builds two client configs from env via `resolveLlmConfig`
+(`apps/agent-worker/src/llm-config.ts`) — same base URL and API key, different
+model per agent:
 
-| Env var | Used by | Default (placeholder) |
+| Env var | Used by | Default |
 | --- | --- | --- |
-| `LLM_BASE_URL` | both | `http://localhost:3040` |
+| `LLM_BASE_URL` | both | `http://localhost:3001` (FreeLLMAPI router root) |
 | `LLM_API_KEY` | both | empty |
-| `LLM_ANALYSIS_MODEL` | Agent 1 | `fast-free-model` |
-| `LLM_VERIFICATION_MODEL` | Agent 2 | `strong-free-model` |
+| `LLM_ANALYSIS_MODEL` | Agent 1 | none — must be set explicitly |
+| `LLM_VERIFICATION_MODEL` | Agent 2 | none — must be set explicitly |
+| `LLM_TIMEOUT_MS` | both | `20000` |
+
+`LLM_BASE_URL` must be the **bare router root with no `/v1`**: the client appends
+`/v1/chat/completions` itself (`llm-client.ts:34`), so a `/v1` here yields
+`/v1/v1/chat/completions` and a 404. `resolveLlmConfig` strips a trailing `/v1`
+defensively and logs a warning, because FreeLLMAPI's own docs show the `/v1`
+form for OpenAI-SDK use.
+
+Both model names must be concrete IDs from the router's catalog
+(`GET /v1/models`). The former defaults `fast-free-model` / `strong-free-model`
+were placeholders matching nothing; readiness now **fails** if they are still
+present, since a placeholder looks configured but makes every review escalate.
 
 The split is intentional: a cheap fast model for the high-volume analysis task,
-a stronger one for the judgment call (`gridproof.md:504`). `timeoutMs` is fixed
-at 8 s (`index.ts:34`).
+a stronger one for the judgment call (`gridproof.md:504`).
 
 `packages/ai/src/llm-client.ts` talks only to an OpenAI-compatible
 `/v1/chat/completions` endpoint (`llm-client.ts:34`) with
 `response_format: json_object` and `temperature: 0.1` (`llm-client.ts:43-44`).
 No provider-specific code exists anywhere, which is what makes swapping
 providers a one-line env change.
+
+Run `pnpm llm:preflight` before a demo. `orchestrateCandidateReview` catches
+every failure and returns `escalate` (`orchestrator.ts:50-52`), so a rejected
+`response_format`, a bad key, and a genuine low-confidence call are
+indistinguishable downstream. The preflight fires real requests and names the
+actual failure mode, including a no-`response_format` retry that separates
+"this provider rejects strict JSON mode" from "the model can't follow the prompt".
 
 ## Step 0 — tool context gathering (no LLM involved)
 
@@ -91,8 +110,9 @@ no lenient fallback and no partial acceptance.
 
 **Failure always escalates, never approves.** `orchestrator.ts:50-53` catches
 everything — timeout, non-2xx, bad JSON, schema mismatch — and converts it to
-`{outcome: "escalate"}`. With the 8 s abort at `llm-client.ts:31`, the worst case
-is "a human looks at it," never "assume it's fine" (`gridproof.md:469`).
+`{outcome: "escalate"}`. With the abort at `llm-client.ts:31` (`LLM_TIMEOUT_MS`,
+default 20 s via `llm-config.ts`), the worst case is "a human looks at it," never
+"assume it's fine" (`gridproof.md:469`).
 
 **Approve is re-checked in code.** `orchestrator.ts:45` overrides any `approve`
 carrying `finalConfidence < 0.85` into an escalation with reason
@@ -153,10 +173,11 @@ instructions to the model. Nothing sanitizes or delimits it. Acceptable for a
 demo; before untrusted providers submit at volume, `rawPayload` should be
 stripped to known fields or clearly fenced.
 
-**Readiness only checks presence, not validity.** `readiness.ts:38-51` verifies
-the four `LLM_*` vars are non-empty. It will report ready with the placeholder
-model names above, which no provider will accept — a misconfigured proxy
-degrades quietly to "everything escalates."
+**Readiness checks presence and rejects placeholders, but not validity.**
+`readiness.ts:40-58` verifies the four `LLM_*` vars are non-empty and fails
+`llm_models` on the known placeholder names (`rejectValues: PLACEHOLDER_MODELS`).
+It still cannot tell whether a non-placeholder model ID exists in the router's
+catalog — only `pnpm llm:preflight` fires real requests and answers that.
 
 **`zoneId` type mismatch across the boundary.** The application treats `zoneId`
 as a UUID (`packages/shared-types/src/domain.ts:53`, and every tool schema in

@@ -5,6 +5,7 @@ import type {
   EpochScore,
   Zone
 } from "@gridproof/shared-types";
+import { DEMO_NATIONAL_ZONES } from "@gridproof/shared-types";
 
 export const demoZone: Zone = {
   id: "8a27f3e2-2608-4a88-b8db-efce68be2a59",
@@ -15,23 +16,8 @@ export const demoZone: Zone = {
   centroid: { lat: 8.133, lng: 4.25 }
 };
 
-export const demoZones = [
-  {
-    ...demoZone,
-    latestStatus: "grid_up" as const,
-    latestUptimeBps: 9675
-  },
-  {
-    id: "378b2fae-55dd-488f-aefd-c9bc17f8d4ff",
-    zoneKey: `0x${"b".repeat(64)}`,
-    name: "Ogbomoso Feeder B",
-    discosFeederCode: "IBEDC-OGB-B",
-    region: "Oyo",
-    centroid: { lat: 8.151, lng: 4.238 },
-    latestStatus: "grid_down" as const,
-    latestUptimeBps: 6420
-  }
-];
+/** Used when DATABASE_URL is absent; covers all 11 DisCos. */
+export const demoZones = DEMO_NATIONAL_ZONES;
 
 export const demoCandidate: CandidateEvent = {
   id: "c04ac0c9-73b8-49f0-97fd-52c77a38bd77",

@@ -258,6 +258,12 @@ export const alertItemSchema = z.object({
   decision: agentDecisionStatusSchema,
   hypothesis: z.string().min(1),
   supportingEvidenceIds: z.array(uuidSchema),
+  review: z.object({
+    initialDecision: agentDecisionStatusSchema,
+    decision: z.enum(["approve", "reject"]),
+    note: z.string().min(1),
+    reviewedAt: z.string().datetime({ offset: true }).nullable()
+  }).nullable(),
   createdAt: z.string().datetime({ offset: true }),
   candidateCreatedAt: z.string().datetime({ offset: true })
 });

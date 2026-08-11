@@ -83,8 +83,10 @@ services:
       - key: LLM_API_KEY
         sync: false
       - key: LLM_ANALYSIS_MODEL
-        value: fast-free-model
+        sync: false
       - key: LLM_VERIFICATION_MODEL
-        value: strong-free-model
+        sync: false
+      - key: LLM_TIMEOUT_MS
+        value: 20000
       - key: LOG_LEVEL
         value: info

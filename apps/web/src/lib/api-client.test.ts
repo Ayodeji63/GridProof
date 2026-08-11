@@ -46,6 +46,7 @@ const alert = {
   decision: "approve",
   hypothesis: "Candidate outage passed deterministic confidence threshold.",
   supportingEvidenceIds: ["6a670093-7823-44e1-80e4-ac608f9e75bd"],
+  review: null,
   createdAt: "2026-08-09T12:03:00.000Z",
   candidateCreatedAt: "2026-08-09T12:02:00.000Z"
 } as const;

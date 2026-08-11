@@ -1,4 +1,5 @@
-import { Activity, AlertTriangle, CircleDot, RadioTower, ShieldCheck } from "lucide-react";
+import { Activity, AlertTriangle, RadioTower, ShieldCheck } from "lucide-react";
+import { DISCOS, discoCodeFromFeederCode } from "@gridproof/shared-types";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
@@ -6,6 +7,7 @@ import { apiClient } from "../../lib/api-client.js";
 import { useRealtime } from "../../lib/realtime.js";
 import { useDashboardStore } from "../../stores/dashboard-store.js";
 import { sampleZones } from "./sample-data.js";
+import { ZoneMap } from "./ZoneMap.js";
 
 export function Dashboard() {
   useRealtime();
@@ -27,6 +29,8 @@ export function Dashboard() {
   const averageUptimeBps = average(zones.map((zone) => zone.latestUptimeBps).filter((value) => value != null));
   const zonesDown = zones.filter((zone) => statusByZoneId[zone.id] === "grid_down").length;
   const healthLabel = zonesQuery.isLoading ? "Loading API" : usingDemoFallback ? "Demo data active" : "API connected";
+  const discoRollups = rollupByDisco(zones, statusByZoneId);
+  const discosReporting = discoRollups.filter((rollup) => rollup.zoneCount > 0).length;
 
   return (
     <main className="shell">
@@ -43,6 +47,7 @@ export function Dashboard() {
 
       <section className="metrics-grid" aria-label="Network metrics">
         <Metric label="Tracked zones" value={zones.length.toString()} icon={<RadioTower size={18} />} />
+        <Metric label="DisCos reporting" value={`${discosReporting} / 11`} icon={<RadioTower size={18} />} />
         <Metric label="Average uptime" value={averageUptimeBps == null ? "Pending" : formatBps(averageUptimeBps)} icon={<Activity size={18} />} />
         <Metric label="Zones down" value={zonesDown.toString()} icon={<AlertTriangle size={18} />} />
       </section>
@@ -61,27 +66,31 @@ export function Dashboard() {
       {zones.length > 0 ? (
         <section className="dashboard-grid">
           <div className="map-panel" aria-label="Live zone map">
-            <div className="map-canvas">
-              {zones.map((zone, index) => {
+            <ZoneMap
+              onSelectZone={selectZone}
+              selectedZoneId={selectedZone?.id}
+              statusByZoneId={statusByZoneId}
+              zones={zones}
+            />
+            <ul className="zone-list" aria-label="Tracked feeders">
+              {zones.map((zone) => {
                 const status = statusByZoneId[zone.id] ?? zone.latestStatus;
-                const position = markerPosition(zone.centroid, zones, index);
                 return (
-                  <button
-                    className={`zone-marker ${status}`}
-                    key={zone.id}
-                    onClick={() => selectZone(zone.id)}
-                    style={{
-                      left: `${position.left}%`,
-                      top: `${position.top}%`
-                    }}
-                    title={`${zone.name}: ${status.replace("_", " ")}`}
-                    type="button"
-                  >
-                    <CircleDot size={18} aria-hidden="true" />
-                  </button>
+                  <li key={zone.id}>
+                    <button
+                      aria-pressed={zone.id === selectedZone?.id}
+                      className={`zone-chip ${status}`}
+                      onClick={() => selectZone(zone.id)}
+                      title={`${zone.name}: ${status.replace("_", " ")}`}
+                      type="button"
+                    >
+                      <span className="zone-chip-dot" aria-hidden="true" />
+                      {zone.name}
+                    </button>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           </div>
 
           <aside className="zone-panel">
@@ -114,6 +123,38 @@ export function Dashboard() {
           </aside>
         </section>
       ) : null}
+
+      <section className="disco-panel" aria-label="DisCo coverage">
+        <h2>DisCo coverage</h2>
+        <p className="disco-caption">
+          All 11 Nigerian distribution companies. Rows without tracked feeders have no telemetry yet.
+        </p>
+        <table className="disco-table">
+          <thead>
+            <tr>
+              <th scope="col">DisCo</th>
+              <th scope="col">States</th>
+              <th scope="col">Zones</th>
+              <th scope="col">Down</th>
+              <th scope="col">Avg uptime</th>
+            </tr>
+          </thead>
+          <tbody>
+            {discoRollups.map((rollup) => (
+              <tr className={rollup.zoneCount === 0 ? "disco-row empty" : "disco-row"} key={rollup.code}>
+                <th scope="row">
+                  <span className="disco-code">{rollup.code}</span>
+                  <span className="disco-name">{rollup.name}</span>
+                </th>
+                <td>{rollup.states.join(", ")}</td>
+                <td>{rollup.zoneCount}</td>
+                <td>{rollup.zoneCount === 0 ? "—" : rollup.zonesDown}</td>
+                <td>{rollup.averageUptimeBps == null ? "—" : formatBps(rollup.averageUptimeBps)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
     </main>
   );
 }
@@ -137,28 +178,35 @@ function formatBps(value: number): string {
   return `${(value / 100).toFixed(2)}%`;
 }
 
-function markerPosition(
-  centroid: { lat: number; lng: number },
-  zones: Array<{ centroid: { lat: number; lng: number } }>,
-  fallbackIndex: number
-): { left: number; top: number } {
-  const lats = zones.map((zone) => zone.centroid.lat);
-  const lngs = zones.map((zone) => zone.centroid.lng);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
+type DiscoRollup = {
+  code: (typeof DISCOS)[number]["code"];
+  name: string;
+  states: string[];
+  zoneCount: number;
+  zonesDown: number;
+  averageUptimeBps: number | null;
+};
 
-  const left =
-    maxLng === minLng ? 24 + fallbackIndex * 18 : 14 + ((centroid.lng - minLng) / (maxLng - minLng)) * 72;
-  const top = maxLat === minLat ? 36 + (fallbackIndex % 2) * 20 : 14 + ((maxLat - centroid.lat) / (maxLat - minLat)) * 72;
-
-  return {
-    left: clamp(left, 10, 86),
-    top: clamp(top, 10, 86)
-  };
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
+/**
+ * Aggregates zones per DisCo, ordered to mirror the canonical DISCOS registry so
+ * the dashboard always shows all 11 rows in the same stable order.
+ */
+export function rollupByDisco(
+  zones: Array<{ id: string; discosFeederCode: string; latestUptimeBps: number | null }>,
+  statusByZoneId: Record<string, string>
+): DiscoRollup[] {
+  return DISCOS.map((disco) => {
+    const zonesInDisco = zones.filter((zone) => discoCodeFromFeederCode(zone.discosFeederCode) === disco.code);
+    const uptimes = zonesInDisco
+      .map((zone) => zone.latestUptimeBps)
+      .filter((value): value is number => value != null);
+    return {
+      code: disco.code,
+      name: disco.name,
+      states: disco.states,
+      zoneCount: zonesInDisco.length,
+      zonesDown: zonesInDisco.filter((zone) => statusByZoneId[zone.id] === "grid_down").length,
+      averageUptimeBps: average(uptimes)
+    };
+  });
 }

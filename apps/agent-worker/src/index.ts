@@ -5,6 +5,7 @@ import IORedis from "ioredis";
 import { Pool } from "pg";
 import pino from "pino";
 import type { AgentToolQuery } from "@gridproof/ai";
+import { resolveLlmConfig } from "./llm-config.js";
 import { orchestrateCandidateReview } from "./orchestrator.js";
 import { workerReadinessSnapshot } from "./readiness.js";
 import { persistOrchestrationResult } from "./result-sink.js";
@@ -27,17 +28,12 @@ if (!redisUrl) {
   });
   const toolQuery = readOnlyToolQueryFromEnv();
 
-  const analysisOptions = {
-    baseUrl: process.env.LLM_BASE_URL ?? "http://localhost:3040",
-    apiKey: process.env.LLM_API_KEY ?? "",
-    model: process.env.LLM_ANALYSIS_MODEL ?? "fast-free-model",
-    timeoutMs: 8_000
-  };
-
-  const verificationOptions = {
-    ...analysisOptions,
-    model: process.env.LLM_VERIFICATION_MODEL ?? "strong-free-model"
-  };
+  const llmConfig = resolveLlmConfig();
+  for (const issue of llmConfig.issues) {
+    logger.warn({ env: issue.env }, issue.message);
+  }
+  const analysisOptions = llmConfig.analysis;
+  const verificationOptions = llmConfig.verification;
 
   worker = new Worker(
     "agent-review",
