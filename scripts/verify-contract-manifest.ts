@@ -95,9 +95,7 @@ function contractManifestPathFromEnv(env: NodeJS.ProcessEnv): string {
     return resolve("smart-contracts", "deployments", `${network}.json`);
   }
 
-  throw new Error(
-    "GRIDPROOF_CONTRACT_MANIFEST_PATH is required. Example: GRIDPROOF_CONTRACT_MANIFEST_PATH=smart-contracts/deployments/botchainTestnet.json pnpm deployment:contracts"
-  );
+  return resolve("smart-contracts", "deployments", "botchainTestnet.json");
 }
 
 function parseManifest(raw: string): DeploymentManifest {

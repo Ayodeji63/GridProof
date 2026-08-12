@@ -54,6 +54,7 @@ contract Deploy is Script {
     ) public returns (NodeRegistry registry, UptimeAttestation attestation, ReputationEscrow escrow) {
         require(p.admin != address(0), "GRIDPROOF_ADMIN_ADDRESS must not be the zero address");
         require(p.relayer != address(0), "GRIDPROOF_RELAYER_ADDRESS must not be the zero address");
+        require(p.admin != p.relayer, "GRIDPROOF_ADMIN_ADDRESS must differ from GRIDPROOF_RELAYER_ADDRESS");
         require(p.epochDurationSeconds > 0, "GRIDPROOF_EPOCH_DURATION_SECONDS must be > 0");
 
         vm.startBroadcast();
@@ -74,7 +75,7 @@ contract Deploy is Script {
         bool canSeedZones = p.admin == broadcastSender;
         if (p.zoneIds.length > 0 && canSeedZones) {
             for (uint256 i = 0; i < p.zoneIds.length; i++) {
-                registry.addZone(keccak256(bytes(p.zoneIds[i])));
+                registry.addZone(_zoneKey(p.zoneIds[i]));
             }
         }
 
@@ -179,5 +180,27 @@ contract Deploy is Script {
 
     function _pad2(uint256 value) private pure returns (string memory) {
         return value < 10 ? string.concat("0", Strings.toString(value)) : Strings.toString(value);
+    }
+
+    /// @dev Accept an existing bytes32 zone key as 0x + 64 hex characters. Other
+    ///      values are treated as human-readable zone identifiers and hashed.
+    function _zoneKey(string memory value) private pure returns (bytes32) {
+        bytes memory raw = bytes(value);
+        if (raw.length != 66 || raw[0] != "0" || (raw[1] != "x" && raw[1] != "X")) {
+            return keccak256(raw);
+        }
+
+        uint256 parsed;
+        for (uint256 i = 2; i < 66; i++) {
+            parsed = (parsed << 4) | _hexNibble(uint8(raw[i]));
+        }
+        return bytes32(parsed);
+    }
+
+    function _hexNibble(uint8 charCode) private pure returns (uint8) {
+        if (charCode >= 48 && charCode <= 57) return charCode - 48;
+        if (charCode >= 65 && charCode <= 70) return charCode - 55;
+        if (charCode >= 97 && charCode <= 102) return charCode - 87;
+        revert("GRIDPROOF_ZONE_IDS contains invalid bytes32 hex");
     }
 }

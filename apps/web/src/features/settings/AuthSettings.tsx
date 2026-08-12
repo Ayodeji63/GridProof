@@ -87,7 +87,11 @@ export function AuthSettings() {
     localStorage.setItem(apiClient.authTokenStorageKey, sessionToken);
     setToken(sessionToken);
     setMessage(successMessage);
-    await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["auth-me"] }),
+      queryClient.invalidateQueries({ queryKey: ["review-queue"] }),
+      queryClient.invalidateQueries({ queryKey: ["notifications"] })
+    ]);
   }
 
   return (

@@ -60,7 +60,14 @@ The API uses Redis for ingestion rate limiting and job queues. The worker consum
 
 ## 2. Deploy BOT Chain contracts
 
-GridProof contracts are configured for local Anvil, BOT Chain testnet, and BOT Chain mainnet without hardcoded network constants. Pull RPC URLs, chain IDs, faucet links, and explorer API URLs from the official BOT Chain hackathon docs given to the team.
+GridProof contracts are configured for local Anvil, BOT Chain testnet, and BOT Chain mainnet. The official BOT Chain network settings are:
+
+| Network | Chain ID | RPC | Explorer | Manifest |
+| --- | ---: | --- | --- | --- |
+| Testnet | 968 | `https://rpc.bohr.life` | `https://scan.bohr.life` | `smart-contracts/deployments/botchainTestnet.json` |
+| Mainnet | 677 | `https://rpc.botchain.ai` | `https://scan.botchain.ai` | `smart-contracts/deployments/botchainMainnet.json` |
+
+Always confirm `cast chain-id --rpc-url <rpc>` before a broadcast in case the network operator changes an endpoint.
 
 Do not guess BOT Chain values in source code or docs.
 
@@ -80,7 +87,7 @@ Fill `.env` with the network values and the deploy parameters documented in
 - `DEPLOYER_PRIVATE_KEY`, or use `--ledger` / `--account <keystore>` instead
 - `GRIDPROOF_NETWORK`, which names the manifest file
 - `GRIDPROOF_ADMIN_ADDRESS` and `GRIDPROOF_RELAYER_ADDRESS`, which must differ
-- optional policy params `GRIDPROOF_EPOCH_DURATION_SECONDS`, `GRIDPROOF_SLASH_POLICY_CAP`, `GRIDPROOF_MINIMUM_STAKE`, `GRIDPROOF_WITHDRAW_COOLDOWN_SECONDS`, and `GRIDPROOF_ZONE_IDS`
+- optional policy params `GRIDPROOF_EPOCH_DURATION_SECONDS`, `GRIDPROOF_SLASH_POLICY_CAP`, `GRIDPROOF_MINIMUM_STAKE`, `GRIDPROOF_WITHDRAW_COOLDOWN_SECONDS`, and `GRIDPROOF_ZONE_IDS`. For existing zones, populate `GRIDPROOF_ZONE_IDS` with the database's exact `zone_key` values; `0x` + 64-hex values are preserved rather than hashed again.
 
 Keep `.env` local. Never commit populated secrets or private keys.
 
@@ -140,10 +147,10 @@ be loaded into the shell.
 skips seeding; call `NodeRegistry.addZone` from the multisig for each zone
 afterwards.
 
-The deploy script writes:
+For the selected `GRIDPROOF_NETWORK`, the deploy script writes:
 
 ```text
-smart-contracts/deployments/botchainTestnet.json
+smart-contracts/deployments/<GRIDPROOF_NETWORK>.json
 ```
 
 That manifest includes:
@@ -177,6 +184,31 @@ BOTCHAIN_UPTIME_ATTESTATION_ADDRESS=<manifest-uptime-attestation> \
 BOTCHAIN_REPUTATION_ESCROW_ADDRESS=<manifest-reputation-escrow> \
 pnpm deployment:contracts
 ```
+
+The repository also provides fixed-path shortcuts:
+
+```bash
+pnpm deployment:contracts:testnet
+pnpm deployment:contracts:mainnet
+```
+
+The mainnet command expects `smart-contracts/deployments/botchainMainnet.json`, which is created only by a successful mainnet deployment. A missing-file failure before deployment is expected; never copy or rename the testnet manifest to satisfy it.
+
+### Mainnet pre-broadcast gate
+
+Before adding `--broadcast`, confirm all of the following:
+
+```bash
+cd smart-contracts
+set -a && . ./.env && set +a
+test "$(cast chain-id --rpc-url "$BOTCHAIN_RPC_URL")" = "677"
+test "$GRIDPROOF_NETWORK" = "botchainMainnet"
+test "${GRIDPROOF_ADMIN_ADDRESS,,}" != "${GRIDPROOF_RELAYER_ADDRESS,,}"
+DEPLOYER_ADDRESS=$(cast wallet address --private-key "$DEPLOYER_PRIVATE_KEY")
+cast balance "$DEPLOYER_ADDRESS" --rpc-url "$BOTCHAIN_RPC_URL"
+```
+
+The balance must be non-zero and sufficient for three deployments. Prefer a hardware wallet or encrypted Foundry keystore on mainnet instead of a raw `DEPLOYER_PRIVATE_KEY`.
 
 The preflight fails on malformed manifests, zero or duplicate contract addresses, admin/relayer wallet reuse, chain-ID mismatches, and API contract-address mismatches. It warns when API env values are not set yet, which is acceptable only before wiring Render secrets.
 

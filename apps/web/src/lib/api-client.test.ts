@@ -259,6 +259,18 @@ describe("apiClient", () => {
     await expect(apiClient.reviewQueue()).rejects.toThrow("GridProof API request failed: 503");
   });
 
+  it("preserves structured API authentication errors", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      error: { code: "UNAUTHENTICATED", message: "A valid bearer token is required" }
+    }), { status: 401, headers: { "Content-Type": "application/json" } })));
+
+    await expect(apiClient.reviewQueue()).rejects.toMatchObject({
+      status: 401,
+      code: "UNAUTHENTICATED",
+      message: "A valid bearer token is required"
+    });
+  });
+
   it("attaches a stored bearer token when calling protected endpoints", async () => {
     const fetchMock = vi.fn(async () =>
       new Response(JSON.stringify({ items: [] }), {

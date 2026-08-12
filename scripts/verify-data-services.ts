@@ -81,6 +81,7 @@ export async function verifyDataServices(options: DataServicesVerifierOptions = 
     checks.push(await checkPgcrypto(queryRows));
     checks.push(await checkTables(queryRows));
     checks.push(await checkIndexes(queryRows));
+    checks.push(await checkRowLevelSecurity(queryRows));
     checks.push(redisUrlCheck);
     checks.push(await checkRedisPing(redisUrl, pingRedis));
     return checks;
@@ -190,6 +191,40 @@ async function checkIndexes(queryRows: QueryRows): Promise<DataServicesCheckResu
     };
   } catch (error) {
     return { name: "postgres_indexes", status: "fail", detail: errorMessage(error) };
+  }
+}
+
+async function checkRowLevelSecurity(queryRows: QueryRows): Promise<DataServicesCheckResult> {
+  try {
+    const rows = await queryRows(
+      `
+        select relname as table_name
+        from pg_class
+        join pg_namespace on pg_namespace.oid = pg_class.relnamespace
+        where pg_namespace.nspname = 'public'
+          and pg_class.relkind = 'r'
+          and pg_class.relrowsecurity = true
+          and relname = any($1::text[])
+      `,
+      [[...requiredTables]]
+    );
+    const protectedTables = new Set(rows.map((row) => String(row.table_name)));
+    const missing = requiredTables.filter((table) => !protectedTables.has(table));
+    if (missing.length > 0) {
+      return {
+        name: "postgres_row_level_security",
+        status: "fail",
+        detail: `Row-level security is disabled on: ${missing.join(", ")}. Run pnpm db:migrate before exposing Supabase.`
+      };
+    }
+
+    return {
+      name: "postgres_row_level_security",
+      status: "pass",
+      detail: `Row-level security is enabled on all ${requiredTables.length} GridProof tables.`
+    };
+  } catch (error) {
+    return { name: "postgres_row_level_security", status: "fail", detail: errorMessage(error) };
   }
 }
 

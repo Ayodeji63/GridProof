@@ -1,7 +1,8 @@
-import { Copy, ExternalLink } from "lucide-react";
+import { CheckCircle2, Clock3, Copy, ExternalLink, RefreshCw, Send, XCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { apiClient } from "../../lib/api-client.js";
+import { formatGridProofDateTime } from "../../lib/date-time.js";
 
 export function ProofExplorer() {
   const { zoneId, epoch } = useParams();
@@ -9,7 +10,8 @@ export function ProofExplorer() {
     queryKey: ["proof", zoneId, epoch],
     queryFn: () => apiClient.proof(requireRouteParam(zoneId, "zoneId"), requireRouteParam(epoch, "epoch")),
     enabled: Boolean(zoneId && epoch),
-    retry: 1
+    retry: 1,
+    refetchInterval: (query) => query.state.data?.commitment?.status === "confirmed" ? false : 10_000
   });
 
   const epochScore = proofQuery.data?.epochScore ?? null;
@@ -29,6 +31,21 @@ export function ProofExplorer() {
         ) : null}
         {epochScore ? (
           <>
+            <section className={`proof-state ${commitment?.status ?? "pending"}`} aria-live="polite">
+              {commitment?.status === "confirmed" ? <CheckCircle2 size={22} aria-hidden="true" /> : null}
+              {commitment?.status === "failed" ? <XCircle size={22} aria-hidden="true" /> : null}
+              {!commitment || commitment.status === "pending" ? <Clock3 size={22} aria-hidden="true" /> : null}
+              <div>
+                <strong>{proofStateTitle(commitment?.status)}</strong>
+                <p>{proofStateMessage(commitment?.status, Boolean(txHash))}</p>
+              </div>
+            </section>
+            <ol className="proof-steps" aria-label="Proof lifecycle">
+              <ProofStep complete label="Evidence assessed" />
+              <ProofStep complete label="Proof queued" />
+              <ProofStep complete={Boolean(txHash)} label="Transaction submitted" />
+              <ProofStep complete={commitment?.status === "confirmed"} label="Block confirmed" />
+            </ol>
             <dl>
               <div>
                 <dt>Zone</dt>
@@ -36,7 +53,7 @@ export function ProofExplorer() {
               </div>
               <div>
                 <dt>Epoch</dt>
-                <dd>{epochScore.epochStart}</dd>
+                <dd><time dateTime={epochScore.epochStart}>{formatGridProofDateTime(epochScore.epochStart)}</time></dd>
               </div>
               <div>
                 <dt>Uptime</dt>
@@ -69,6 +86,10 @@ export function ProofExplorer() {
                 <Copy size={18} aria-hidden="true" />
                 Copy hash
               </button>
+              <button disabled={proofQuery.isFetching} onClick={() => void proofQuery.refetch()} type="button">
+                <RefreshCw size={18} aria-hidden="true" />
+                {proofQuery.isFetching ? "Refreshing…" : "Refresh status"}
+              </button>
               <a
                 aria-disabled={!explorerUrl}
                 className={`button-link${explorerUrl ? "" : " disabled"}`}
@@ -86,6 +107,28 @@ export function ProofExplorer() {
       </section>
     </main>
   );
+}
+
+function ProofStep({ complete, label }: { complete: boolean; label: string }) {
+  return (
+    <li className={complete ? "complete" : ""}>
+      {complete ? <CheckCircle2 size={17} aria-hidden="true" /> : <Send size={17} aria-hidden="true" />}
+      <span>{label}</span>
+    </li>
+  );
+}
+
+function proofStateTitle(status: "pending" | "confirmed" | "failed" | undefined): string {
+  if (status === "confirmed") return "Confirmed on BOT Chain";
+  if (status === "failed") return "Submission failed";
+  return "Queued for BOT Chain submission";
+}
+
+function proofStateMessage(status: "pending" | "confirmed" | "failed" | undefined, hasTransaction: boolean): string {
+  if (status === "confirmed") return "The transaction is confirmed and the explorer record is available below.";
+  if (status === "failed") return "The latest chain attempt failed. An operator should inspect API logs and retry the submission.";
+  if (hasTransaction) return "The transaction was submitted and is waiting for block confirmation.";
+  return "The proof exists off-chain and is waiting for the relayer to submit its transaction.";
 }
 
 function requireRouteParam(value: string | undefined, name: string): string {

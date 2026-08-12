@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { apiClient } from "../../lib/api-client.js";
+import { formatGridProofDateTime } from "../../lib/date-time.js";
 import { useRealtime } from "../../lib/realtime.js";
 
 export function ZoneDetail() {
@@ -96,7 +97,7 @@ export function ZoneDetail() {
                     <dl>
                       <div>
                         <dt>Epoch</dt>
-                        <dd>{score.epochStart}</dd>
+                        <dd><time dateTime={score.epochStart}>{formatGridProofDateTime(score.epochStart)}</time></dd>
                       </div>
                       <div>
                         <dt>Evidence hash</dt>
@@ -129,7 +130,9 @@ export function ZoneDetail() {
                       <div>
                         <dt>Window</dt>
                         <dd>
-                          {candidate.windowStart} → {candidate.windowEnd}
+                          <time dateTime={candidate.windowStart}>{formatGridProofDateTime(candidate.windowStart)}</time>
+                          {" → "}
+                          <time dateTime={candidate.windowEnd}>{formatGridProofDateTime(candidate.windowEnd)}</time>
                         </dd>
                       </div>
                       <div>
@@ -138,7 +141,7 @@ export function ZoneDetail() {
                       </div>
                       <div>
                         <dt>Created</dt>
-                        <dd>{candidate.createdAt}</dd>
+                        <dd><time dateTime={candidate.createdAt}>{formatGridProofDateTime(candidate.createdAt)}</time></dd>
                       </div>
                     </dl>
                   </div>

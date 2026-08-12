@@ -38,6 +38,7 @@ import {
   type ZoneHistoryResponse,
   type ZonesResponse
 } from "@gridproof/shared-types";
+import { ApiError } from "./api-error.js";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000/api/v1";
 const authTokenStorageKey = "gridproof.authToken";
@@ -47,7 +48,7 @@ async function getJson<T>(path: string, parse: (value: unknown) => T, allowedErr
   const init = authInit();
   const response = init ? await fetch(url, init) : await fetch(url);
   if (!response.ok && !allowedErrorStatuses.includes(response.status)) {
-    throw new Error(`GridProof API request failed: ${response.status}`);
+    throw await apiError(response);
   }
 
   return parse(await response.json());
@@ -68,7 +69,7 @@ async function postJson<T>(
   });
 
   if (!response.ok) {
-    throw new Error(`GridProof API request failed: ${response.status}`);
+    throw await apiError(response);
   }
 
   return parse(await response.json());
@@ -121,4 +122,19 @@ function authToken(): string | null {
 
   if (typeof localStorage === "undefined") return null;
   return localStorage.getItem(authTokenStorageKey);
+}
+
+async function apiError(response: Response): Promise<ApiError> {
+  let code: string | null = null;
+  let message = `GridProof API request failed: ${response.status}`;
+
+  try {
+    const body = await response.clone().json() as { error?: { code?: unknown; message?: unknown } };
+    if (typeof body.error?.code === "string") code = body.error.code;
+    if (typeof body.error?.message === "string") message = body.error.message;
+  } catch {
+    // Preserve the status-based fallback when the upstream response is not JSON.
+  }
+
+  return new ApiError(response.status, code, message);
 }

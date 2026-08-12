@@ -82,7 +82,9 @@ describe("AlertsFeed", () => {
     expect(container.textContent).toContain("Initial policy decision: escalated");
     expect(container.textContent).toContain("Initial assessment:");
     expect(container.textContent).toContain("Reviewer confirmation: Field crew confirmed the outage.");
-    expect(container.textContent).toContain("Reviewed2026-08-09T12:10:00.000Z");
+    expect(container.textContent).toContain("Reviewed9 Aug 2026 at 1:10 PM WAT");
+    expect(container.textContent).toContain("Automated assessment9 Aug 2026 at 1:03 PM WAT");
+    expect(container.querySelector('time[datetime="2026-08-09T12:10:00.000Z"]')).not.toBeNull();
   });
 
   it("renders an empty state when no public alerts exist", async () => {
@@ -93,6 +95,62 @@ describe("AlertsFeed", () => {
     await waitFor(() => expect(container?.textContent).toContain("No public alerts yet"));
 
     expect(container.textContent).toContain("New outage/restoration candidates");
+  });
+
+  it("filters alerts by status and search text", async () => {
+    alertsMock.mockResolvedValue({
+      alerts: [
+        alert,
+        {
+          ...alert,
+          id: "00000000-0000-4000-8000-000000000002",
+          candidateEventId: "00000000-0000-4000-8000-000000000003",
+          status: "restored",
+          hypothesis: "Power restored after feeder maintenance."
+        }
+      ]
+    });
+
+    container = renderAlertsFeed();
+    await waitFor(() => expect(container?.querySelectorAll("article")).toHaveLength(2));
+
+    const status = selectByLabel(container, "Filter by grid status");
+    act(() => {
+      setSelectValue(status, "restored");
+      status.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    await waitFor(() => expect(container?.querySelectorAll("article")).toHaveLength(1));
+    expect(container.textContent).toContain("Restoration");
+
+    const search = inputByLabel(container, "Search alerts");
+    act(() => {
+      setInputValue(search, "no matching identifier");
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    await waitFor(() => expect(container?.textContent).toContain("No alerts match these filters"));
+  });
+
+  it("paginates long alert lists", async () => {
+    alertsMock.mockResolvedValue({
+      alerts: Array.from({ length: 10 }, (_, index) => ({
+        ...alert,
+        id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+        candidateEventId: `10000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`
+      }))
+    });
+
+    container = renderAlertsFeed();
+    await waitFor(() => expect(container?.querySelectorAll("article")).toHaveLength(8));
+    expect(container.textContent).toContain("Page 1 of 2");
+
+    const next = buttonByText(container, "Next");
+    act(() => next.click());
+
+    await waitFor(() => expect(container?.querySelectorAll("article")).toHaveLength(2));
+    expect(container.textContent).toContain("Page 2 of 2");
+    expect(buttonByText(container, "Next").disabled).toBe(true);
   });
 
   function renderAlertsFeed(): HTMLDivElement {
@@ -113,6 +171,36 @@ describe("AlertsFeed", () => {
     return element;
   }
 });
+
+function selectByLabel(container: HTMLElement, label: string): HTMLSelectElement {
+  const select = container.querySelector(`[aria-label="${label}"]`);
+  if (!(select instanceof HTMLSelectElement)) throw new Error(`Select not found: ${label}`);
+  return select;
+}
+
+function inputByLabel(container: HTMLElement, label: string): HTMLInputElement {
+  const input = container.querySelector(`[aria-label="${label}"]`);
+  if (!(input instanceof HTMLInputElement)) throw new Error(`Input not found: ${label}`);
+  return input;
+}
+
+function buttonByText(container: HTMLElement, text: string): HTMLButtonElement {
+  const button = Array.from(container.querySelectorAll("button")).find((item) => item.textContent?.includes(text));
+  if (!(button instanceof HTMLButtonElement)) throw new Error(`Button not found: ${text}`);
+  return button;
+}
+
+function setSelectValue(select: HTMLSelectElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set;
+  if (!setter) throw new Error("Unable to set select value");
+  setter.call(select, value);
+}
+
+function setInputValue(input: HTMLInputElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+  if (!setter) throw new Error("Unable to set input value");
+  setter.call(input, value);
+}
 
 async function waitFor(assertion: () => void): Promise<void> {
   let lastError: unknown;

@@ -15,7 +15,7 @@ pnpm db:seed
 pnpm dev
 ```
 
-`pnpm db:seed` is idempotent. It populates demo users, zones, sensor/reporter providers, evidence events, outage/restoration candidates, agent decisions, epoch scores, a confirmed chain commitment placeholder, notifications, and audit logs. Run it before each dry run if you want to reset the visible demo path to known data without clearing the database.
+`pnpm db:seed` is idempotent. It populates demo users, zones, sensor/reporter providers, evidence events, outage/restoration candidates, agent decisions, epoch scores, pending chain commitments, notifications, and audit logs. Pending seed records are not proof of a blockchain transaction; the relayer sweep must submit and confirm them before an explorer link is available. Run the seed before each dry run if you want to reset the visible demo path to known data without clearing the database.
 
 1. Start from the public dashboard and show current feeder-zone status.
 2. Open `Ogbomoso Feeder A` timeline and show seeded outage/restoration candidates.

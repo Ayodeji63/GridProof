@@ -171,6 +171,70 @@ h2 {
   padding: 1px 5px;
 }
 
+.auth-required {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+.proof-state {
+  align-items: flex-start;
+  background: #fff8df;
+  border: 1px solid #e7cf77;
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 14px;
+}
+
+.proof-state.confirmed {
+  background: #e9f6d1;
+  border-color: #9fc568;
+}
+
+.proof-state.failed {
+  background: #fff0ef;
+  border-color: #df9d98;
+}
+
+.proof-state p {
+  margin: 4px 0 0;
+}
+
+.proof-steps {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+}
+
+.proof-steps li {
+  align-items: center;
+  color: #77817d;
+  display: flex;
+  font-size: 0.88rem;
+  gap: 6px;
+}
+
+.proof-steps li.complete {
+  color: #28613d;
+}
+
+@media (max-width: 700px) {
+  .auth-required {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .proof-steps {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 .zone-marker-pin {
   border: 2px solid #ffffff;
   border-radius: 999px;
@@ -373,6 +437,58 @@ dd {
   margin-top: 0;
 }
 
+.alert-filter-panel {
+  margin-top: 28px;
+}
+
+.alert-filter-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.alert-filter-search {
+  grid-column: 1 / -1;
+}
+
+.alert-filter-footer {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+
+.alert-filter-footer p {
+  color: #5b6b63;
+  margin: 0;
+}
+
+.alert-filter-footer button {
+  background: transparent;
+  border: 0;
+  color: #365312;
+  cursor: pointer;
+  font-weight: 600;
+  padding: 6px;
+}
+
+.alert-empty-state {
+  margin-top: 22px;
+}
+
+.alert-pagination {
+  align-items: center;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.alert-pagination span {
+  color: #5b6b63;
+  min-width: 110px;
+  text-align: center;
+}
+
 .timeline-panel {
   margin-top: 18px;
 }
@@ -478,6 +594,14 @@ dd {
 
   .metrics-grid {
     grid-template-columns: 1fr;
+  }
+
+  .alert-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .alert-filter-search {
+    grid-column: auto;
   }
 
   .map-panel,

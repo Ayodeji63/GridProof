@@ -6,6 +6,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ZonesResponse } from "@gridproof/shared-types";
 import { apiClient } from "../../lib/api-client.js";
 import { useDashboardStore } from "../../stores/dashboard-store.js";
 import { Dashboard } from "./Dashboard.js";
@@ -20,6 +21,18 @@ vi.mock("../../lib/api-client.js", () => ({
   apiClient: {
     zones: vi.fn()
   }
+}));
+
+vi.mock("./ZoneMap.js", () => ({
+  ZoneMap: ({ zones, onSelectZone }: { zones: ZonesResponse["zones"]; onSelectZone: (zoneId: string) => void }) => (
+    <div data-testid="zone-map">
+      {zones.map((zone) => (
+        <button key={zone.id} onClick={() => onSelectZone(zone.id)} title={`${zone.name}: ${zone.latestStatus}`}>
+          {zone.name}
+        </button>
+      ))}
+    </div>
+  )
 }));
 
 const zonesMock = vi.mocked(apiClient.zones);

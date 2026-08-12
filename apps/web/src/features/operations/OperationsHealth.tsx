@@ -2,6 +2,7 @@ import { Activity, AlertTriangle, DatabaseZap, Gauge, ShieldCheck, Timer } from 
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { apiClient } from "../../lib/api-client.js";
+import { formatGridProofDateTime } from "../../lib/date-time.js";
 
 export function OperationsHealth() {
   const healthQuery = useQuery({
@@ -72,7 +73,7 @@ export function OperationsHealth() {
           <dl>
             <div>
               <dt>Last health check</dt>
-              <dd>{health?.timestamp ?? "Pending"}</dd>
+              <dd>{health?.timestamp ? <time dateTime={health.timestamp}>{formatGridProofDateTime(health.timestamp)}</time> : "Pending"}</dd>
             </div>
             <div>
               <dt>Health endpoint</dt>

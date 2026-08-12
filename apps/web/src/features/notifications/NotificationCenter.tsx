@@ -2,16 +2,20 @@ import { BellRing, ExternalLink } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { apiClient } from "../../lib/api-client.js";
+import { isAuthenticationError } from "../../lib/api-error.js";
+import { formatGridProofDateTime } from "../../lib/date-time.js";
+import { ReviewerSignInPrompt } from "../settings/ReviewerSignInPrompt.js";
 
 export function NotificationCenter() {
   const notificationsQuery = useQuery({
     queryKey: ["notifications"],
     queryFn: apiClient.notifications,
-    retry: 1,
+    retry: (failureCount, error) => !isAuthenticationError(error) && failureCount < 1,
     refetchInterval: 15_000
   });
 
   const notifications = notificationsQuery.data?.notifications ?? [];
+  const authRequired = notificationsQuery.isError && isAuthenticationError(notificationsQuery.error);
 
   return (
     <main className="shell narrow">
@@ -27,8 +31,9 @@ export function NotificationCenter() {
       </section>
 
       {notificationsQuery.isLoading ? <p className="status-message">Loading notifications…</p> : null}
-      {notificationsQuery.isError ? (
-        <p className="status-message error">Could not load notifications. Check your reviewer/admin token.</p>
+      {authRequired ? <ReviewerSignInPrompt /> : null}
+      {notificationsQuery.isError && !authRequired ? (
+        <p className="status-message error">Could not load notifications. Check the API connection and retry.</p>
       ) : null}
       {!notificationsQuery.isLoading && !notificationsQuery.isError && notifications.length === 0 ? (
         <section className="review-item">
@@ -59,7 +64,7 @@ export function NotificationCenter() {
                 <dl>
                   <div>
                     <dt>Created</dt>
-                    <dd>{notification.createdAt}</dd>
+                    <dd><time dateTime={notification.createdAt}>{formatGridProofDateTime(notification.createdAt)}</time></dd>
                   </div>
                   <div>
                     <dt>Attempts</dt>

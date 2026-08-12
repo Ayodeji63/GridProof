@@ -106,6 +106,19 @@ contract DeployTest is Test {
         vm.removeFile(_manifestPath("test-zones"));
     }
 
+    function testDeployPreservesExistingBytes32ZoneKeys() public {
+        Deploy.Params memory p = _params("test-zone-keys");
+        p.admin = DEFAULT_SENDER;
+        p.zoneIds = new string[](1);
+        p.zoneIds[0] = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+        (NodeRegistry registry,,) = deployer.deploy(p);
+
+        assertTrue(registry.validZones(bytes32(uint256(0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa))));
+        assertFalse(registry.validZones(keccak256(bytes(p.zoneIds[0]))));
+        vm.removeFile(_manifestPath("test-zone-keys"));
+    }
+
     /// @dev When the admin is a multisig the broadcaster cannot seed zones; the deploy must
     ///      still succeed and leave the allowlist empty rather than reverting mid-run.
     function testDeploySkipsZoneSeedingWhenAdminIsNotBroadcaster() public {
@@ -138,6 +151,13 @@ contract DeployTest is Test {
         Deploy.Params memory p = _params("test-zero-epoch");
         p.epochDurationSeconds = 0;
         vm.expectRevert("GRIDPROOF_EPOCH_DURATION_SECONDS must be > 0");
+        deployer.deploy(p);
+    }
+
+    function testDeployRevertsWhenAdminAndRelayerMatch() public {
+        Deploy.Params memory p = _params("test-shared-actor");
+        p.relayer = p.admin;
+        vm.expectRevert("GRIDPROOF_ADMIN_ADDRESS must differ from GRIDPROOF_RELAYER_ADDRESS");
         deployer.deploy(p);
     }
 }

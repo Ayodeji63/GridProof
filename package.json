@@ -20,6 +20,8 @@
     "llm:preflight": "tsx scripts/preflight-llm.ts",
     "simulate:hardware": "tsx scripts/simulate-hardware.ts",
     "deployment:contracts": "tsx scripts/verify-contract-manifest.ts",
+    "deployment:contracts:testnet": "GRIDPROOF_CONTRACT_MANIFEST_PATH=smart-contracts/deployments/botchainTestnet.json pnpm deployment:contracts",
+    "deployment:contracts:mainnet": "GRIDPROOF_CONTRACT_MANIFEST_PATH=smart-contracts/deployments/botchainMainnet.json pnpm deployment:contracts",
     "deployment:data": "tsx scripts/verify-data-services.ts",
     "deployment:evidence": "tsx scripts/verify-demo-evidence.ts",
     "deployment:verify": "tsx scripts/verify-deployment.ts",

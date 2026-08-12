@@ -2,6 +2,9 @@ import { Check, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { apiClient } from "../../lib/api-client.js";
+import { isAuthenticationError } from "../../lib/api-error.js";
+import { formatGridProofDateTime } from "../../lib/date-time.js";
+import { ReviewerSignInPrompt } from "../settings/ReviewerSignInPrompt.js";
 
 export function ReviewQueue() {
   const queryClient = useQueryClient();
@@ -9,7 +12,7 @@ export function ReviewQueue() {
   const reviewQueue = useQuery({
     queryKey: ["review-queue"],
     queryFn: apiClient.reviewQueue,
-    retry: 1
+    retry: (failureCount, error) => !isAuthenticationError(error) && failureCount < 1
   });
   const resolveReview = useMutation({
     mutationFn: ({ id, decision, note }: { id: string; decision: "approve" | "reject"; note: string }) =>
@@ -25,13 +28,17 @@ export function ReviewQueue() {
   });
 
   const items = reviewQueue.data?.items ?? [];
+  const authRequired = reviewQueue.isError && isAuthenticationError(reviewQueue.error);
 
   return (
     <main className="shell narrow">
       <p className="eyebrow">Human-in-the-loop</p>
       <h1>Reviewer Console</h1>
       {reviewQueue.isLoading ? <p className="status-message">Loading escalated evidence…</p> : null}
-      {reviewQueue.isError ? <p className="status-message error">Could not load the review queue.</p> : null}
+      {authRequired ? <ReviewerSignInPrompt /> : null}
+      {reviewQueue.isError && !authRequired ? (
+        <p className="status-message error">Could not load the review queue. Check the API connection and retry.</p>
+      ) : null}
       {!reviewQueue.isLoading && !reviewQueue.isError && items.length === 0 ? (
         <section className="review-item">
           <div>
@@ -62,7 +69,9 @@ export function ReviewQueue() {
                 <div>
                   <dt>Window</dt>
                   <dd>
-                    {item.candidate.windowStart} → {item.candidate.windowEnd}
+                    <time dateTime={item.candidate.windowStart}>{formatGridProofDateTime(item.candidate.windowStart)}</time>
+                    {" → "}
+                    <time dateTime={item.candidate.windowEnd}>{formatGridProofDateTime(item.candidate.windowEnd)}</time>
                   </dd>
                 </div>
               </dl>

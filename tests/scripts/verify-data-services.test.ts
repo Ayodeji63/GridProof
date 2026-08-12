@@ -48,6 +48,7 @@ describe("verifyDataServices", () => {
       postgres_pgcrypto: "pass",
       postgres_tables: "pass",
       postgres_indexes: "pass",
+      postgres_row_level_security: "pass",
       redis_url: "pass",
       redis_ping: "pass"
     });
@@ -104,6 +105,19 @@ describe("verifyDataServices", () => {
     });
   });
 
+  it("fails when a GridProof table is exposed without row-level security", async () => {
+    const checks = await verifyDataServices({
+      env,
+      queryRows: queryRowsFixture({ rlsTables: tables.filter((table) => table !== "evidence_events") }),
+      pingRedis: async () => "PONG"
+    });
+
+    expect(byName(checks, "postgres_row_level_security")).toMatchObject({
+      status: "fail",
+      detail: "Row-level security is disabled on: evidence_events. Run pnpm db:migrate before exposing Supabase."
+    });
+  });
+
   it("fails when Redis does not respond with PONG", async () => {
     const checks = await verifyDataServices({
       env,
@@ -138,10 +152,12 @@ function queryRowsFixture(options: {
   pgcryptoInstalled?: boolean;
   tables?: string[];
   indexes?: string[];
+  rlsTables?: string[];
 } = {}): (sql: string, values?: unknown[]) => Promise<Array<Record<string, unknown>>> {
   const pgcryptoInstalled = options.pgcryptoInstalled ?? true;
   const tableRows = options.tables ?? tables;
   const indexRows = options.indexes ?? indexes;
+  const rlsRows = options.rlsTables ?? tables;
 
   return async (sql: string) => {
     if (sql.includes("current_database()")) {
@@ -155,6 +171,9 @@ function queryRowsFixture(options: {
     }
     if (sql.includes("pg_indexes")) {
       return indexRows.map((indexname) => ({ indexname }));
+    }
+    if (sql.includes("relrowsecurity")) {
+      return rlsRows.map((table_name) => ({ table_name }));
     }
 
     throw new Error(`Unexpected query: ${sql}`);

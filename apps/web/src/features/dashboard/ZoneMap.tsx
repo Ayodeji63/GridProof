@@ -1,5 +1,5 @@
 import mapboxgl from "mapbox-gl";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ZonesResponse } from "@gridproof/shared-types";
 import "mapbox-gl/dist/mapbox-gl.css";
 
@@ -32,6 +32,7 @@ export function ZoneMap({ zones, statusByZoneId, selectedZoneId, onSelectZone }:
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
+  const [mapError, setMapError] = useState<string | null>(null);
   // Keep the latest callback in a ref so marker click handlers never close over a stale prop.
   const onSelectRef = useRef(onSelectZone);
   onSelectRef.current = onSelectZone;
@@ -39,15 +40,27 @@ export function ZoneMap({ zones, statusByZoneId, selectedZoneId, onSelectZone }:
   useEffect(() => {
     if (!containerRef.current || mapRef.current || !accessToken) return;
 
-    mapboxgl.accessToken = accessToken;
-    const map = new mapboxgl.Map({
-      container: containerRef.current,
-      style: "mapbox://styles/mapbox/light-v11",
-      bounds: NIGERIA_BOUNDS,
-      fitBoundsOptions: { padding: 40 }
-    });
-    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
-    mapRef.current = map;
+    let map: mapboxgl.Map;
+    try {
+      if (!mapboxgl.supported()) {
+        setMapError("This browser or device does not support the WebGL map.");
+        return;
+      }
+
+      mapboxgl.accessToken = accessToken;
+      map = new mapboxgl.Map({
+        container: containerRef.current,
+        style: "mapbox://styles/mapbox/light-v11",
+        bounds: NIGERIA_BOUNDS,
+        fitBoundsOptions: { padding: 40 }
+      });
+      map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+      map.on("error", () => setMapError("The live map could not be loaded. Use the feeder list to continue."));
+      mapRef.current = map;
+    } catch {
+      setMapError("The live map could not be initialized. Use the feeder list to continue.");
+      return;
+    }
 
     return () => {
       markersRef.current.forEach((marker) => marker.remove());
@@ -123,6 +136,14 @@ export function ZoneMap({ zones, statusByZoneId, selectedZoneId, onSelectZone }:
           Map unavailable: set <code>VITE_MAPBOX_TOKEN</code> in <code>apps/web/.env</code> to render the
           live zone map.
         </p>
+      </div>
+    );
+  }
+
+  if (mapError) {
+    return (
+      <div className="map-canvas map-fallback" role="alert">
+        <p>{mapError}</p>
       </div>
     );
   }

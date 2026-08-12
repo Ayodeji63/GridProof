@@ -8,6 +8,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiClient } from "../../lib/api-client.js";
 import { NotificationCenter } from "./NotificationCenter.js";
+import { ApiError } from "../../lib/api-error.js";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -73,6 +74,15 @@ describe("NotificationCenter", () => {
     expect(container.textContent).toContain("No notifications yet");
   });
 
+  it("directs unauthenticated operators to Settings", async () => {
+    notificationsMock.mockRejectedValue(new ApiError(401, "UNAUTHENTICATED", "A valid bearer token is required"));
+
+    container = renderNotificationCenter();
+
+    await waitFor(() => expect(container?.textContent).toContain("Reviewer sign-in required"));
+    expect(container.querySelector('a[href="/settings"]')).not.toBeNull();
+  });
+
   function renderNotificationCenter(): HTMLDivElement {
     const element = document.createElement("div");
     document.body.append(element);
@@ -95,14 +105,14 @@ describe("NotificationCenter", () => {
 async function waitFor(assertion: () => void): Promise<void> {
   let lastError: unknown;
 
-  for (let attempt = 0; attempt < 20; attempt += 1) {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
     try {
       assertion();
       return;
     } catch (error) {
       lastError = error;
       await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 20));
       });
     }
   }
