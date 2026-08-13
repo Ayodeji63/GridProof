@@ -326,26 +326,27 @@ Recommended:
 
 ## 4. Deploy web on Vercel
 
-The repo includes Vercel config at:
+The repo includes Vercel config inside the web application's project root at:
 
 ```text
-vercel.json
+apps/web/vercel.json
 ```
 
-It builds only `apps/web` and serves the Vite output from `apps/web/dist`.
+It builds the shared types followed by `apps/web`, then serves the Vite output from `apps/web/dist`.
 
 ### Vercel setup
 
 1. Import the GitHub repo into Vercel.
-2. Leave the framework as Vite.
-3. Confirm the build settings from `vercel.json`:
+2. Set the Root Directory to `apps/web` and leave "Include files outside the root directory" enabled.
+3. Leave the framework as Vite.
+4. Confirm the build settings from `apps/web/vercel.json`:
    - Install command: `pnpm install --frozen-lockfile`
    - Build command: `pnpm --filter @gridproof/shared-types build && pnpm --filter @gridproof/web build`
-   - Output directory: `apps/web/dist`
-4. Set the web environment variables.
-5. Deploy.
-6. Copy the production Vercel URL back into the API `CORS_ORIGINS`.
-7. Redeploy the API after updating CORS.
+   - Output directory: `dist`
+5. Set the web environment variables.
+6. Deploy.
+7. Copy the production Vercel URL back into the API `CORS_ORIGINS`.
+8. Redeploy the API after updating CORS.
 
 ### Web environment variables
 
@@ -456,7 +457,7 @@ From a clean checkout, a teammate should be able to:
 5. Run `DATABASE_URL="<supabase-postgres-url>" REDIS_URL="<upstash-redis-url>" pnpm deployment:data`.
 6. Deploy BOT Chain contracts and record the manifest.
 7. Create Render services from `infrastructure/render.yaml`.
-8. Create the Vercel frontend from `vercel.json`.
+8. Create the Vercel frontend with Root Directory `apps/web`; Vercel will use `apps/web/vercel.json`.
 9. Set `CORS_ORIGINS` to the Vercel production URL and redeploy the API.
 10. Set `GRIDPROOF_API_HEALTH_URL` in GitHub repository variables.
 11. Run `pnpm deployment:verify` and the phone/mobile check.
