@@ -8,6 +8,10 @@ import {
   ingestResponseSchema,
   metricsResponseSchema,
   notificationsResponseSchema,
+  demoSimulationRequestSchema,
+  demoSimulationResponseSchema,
+  demoWalletChallengeRequestSchema,
+  demoWalletChallengeResponseSchema,
   proofResponseSchema,
   readinessResponseSchema,
   providersResponseSchema,
@@ -26,6 +30,10 @@ import {
   type IngestResponse,
   type MetricsResponse,
   type NotificationsResponse,
+  type DemoSimulationRequest,
+  type DemoSimulationResponse,
+  type DemoWalletChallengeRequest,
+  type DemoWalletChallengeResponse,
   type ProofResponse,
   type ReadinessResponse,
   type ProvidersResponse,
@@ -98,6 +106,20 @@ export const apiClient = {
     postJson("/ingest/report", reporterIngestRequestSchema.parse(body), (value) => ingestResponseSchema.parse(value)),
   notifications: (): Promise<NotificationsResponse> =>
     getJson("/admin/notifications", (value) => notificationsResponseSchema.parse(value)),
+  demoWalletChallenge: (body: DemoWalletChallengeRequest): Promise<DemoWalletChallengeResponse> =>
+    postJson(
+      "/demo/wallet-challenge",
+      demoWalletChallengeRequestSchema.parse(body),
+      (value) => demoWalletChallengeResponseSchema.parse(value)
+    ),
+  runDemoSimulation: (body: DemoSimulationRequest): Promise<DemoSimulationResponse> =>
+    postJson(
+      "/demo/simulations",
+      demoSimulationRequestSchema.parse(body),
+      (value) => demoSimulationResponseSchema.parse(value)
+    ),
+  demoSimulation: (id: string): Promise<DemoSimulationResponse> =>
+    getJson(`/demo/simulations/${id}`, (value) => demoSimulationResponseSchema.parse(value)),
   proof: (zoneId: string, epoch: string): Promise<ProofResponse> =>
     getJson(`/chain/proof/${zoneId}/${epoch}`, (value) => proofResponseSchema.parse(value)),
   reviewQueue: (): Promise<ReviewQueueResponse> =>

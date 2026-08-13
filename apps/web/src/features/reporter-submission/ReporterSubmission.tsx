@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import type { ReporterIngestRequest } from "@gridproof/shared-types";
 import { apiClient } from "../../lib/api-client.js";
+import { PageHeader, PanelHeader } from "../../components/PageHeader.js";
 
 type ReporterForm = Pick<ReporterIngestRequest, "reporterWallet" | "zoneId" | "status"> & {
   note: string;
@@ -44,26 +45,20 @@ export function ReporterSubmission() {
 
   return (
     <main className="shell narrow">
-      <section className="topbar" aria-label="Reporter submission heading">
-        <div>
-          <p className="eyebrow">Fallback evidence source</p>
-          <h1>Submit Grid Report</h1>
-        </div>
-        <div className="health-pill">
+      <PageHeader
+        title="Submit Grid Report"
+        description="Record field-observed outages or restorations when automated feeder telemetry is unavailable."
+        status={<div className="health-pill">
           <Smartphone size={18} aria-hidden="true" />
           <span>Reporter mode</span>
-        </div>
-      </section>
+        </div>}
+      />
 
       <form className="proof-panel provider-form report-form" onSubmit={submit}>
-        <div>
-          <p className="eyebrow">Human reporter evidence</p>
-          <h2>Report an outage or restoration</h2>
-          <p>
-            Use this fallback path when ESP32 telemetry is not available. The report enters the same evidence,
-            detection, review, and proof pipeline as sensor data.
-          </p>
-        </div>
+        <PanelHeader
+          title="Report an outage or restoration"
+          description="This report enters the same evidence, detection, review, and proof pipeline as sensor data."
+        />
 
         <label className="field">
           Reporter wallet
@@ -116,7 +111,7 @@ export function ReporterSubmission() {
             type="submit"
           >
             <Send size={18} aria-hidden="true" />
-            Submit report
+            {submitReport.isPending ? "Submitting…" : "Submit report"}
           </button>
         </div>
 

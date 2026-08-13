@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import type { UserRole } from "@gridproof/shared-types";
 import { apiClient } from "../../lib/api-client.js";
+import { PageHeader, PanelHeader } from "../../components/PageHeader.js";
 
 export function AuthSettings() {
   const queryClient = useQueryClient();
@@ -30,7 +31,10 @@ export function AuthSettings() {
   const loginMutation = useMutation({
     mutationFn: () => apiClient.authLogin({ phoneOrEmail: identity.trim() }),
     onSuccess: async (session) => {
-      await saveSession(session.token, `Logged in as ${session.user.role}.`);
+      const accessWarning = roleRank(session.user.role) < roleRank(role)
+        ? ` This account is stored as ${session.user.role}; use Register / upgrade with the invite code to obtain ${role} access.`
+        : "";
+      await saveSession(session.token, `Logged in as ${session.user.role}.${accessWarning}`);
     }
   });
 
@@ -96,21 +100,21 @@ export function AuthSettings() {
 
   return (
     <main className="shell narrow">
-      <section className="topbar" aria-label="Settings heading">
-        <div>
-          <p className="eyebrow">Auth bridge</p>
-          <h1>Settings</h1>
-        </div>
-        <div className="health-pill">
+      <PageHeader
+        title="Access Settings"
+        description="Manage the local authentication session used by protected reviewer and operator workflows."
+        status={<div className="health-pill">
           <KeyRound size={18} aria-hidden="true" />
           <span>{user ? user.role : "Public"}</span>
-        </div>
-      </section>
+        </div>}
+      />
 
       <section className="proof-panel provider-form settings-panel">
         <div>
-          <p className="eyebrow">Current session</p>
-          <h2>{user ? "Authenticated" : "Public access"}</h2>
+          <PanelHeader
+            title={user ? "Authenticated session" : "Public access"}
+            description="Inspect or replace the bearer token used for local API requests."
+          />
           {authQuery.isLoading ? <p className="status-message">Checking current token…</p> : null}
           {authQuery.isError ? (
             <p className="status-message error">Token verification failed. Save a valid Supabase-compatible JWT.</p>
@@ -164,14 +168,10 @@ export function AuthSettings() {
       </section>
 
       <section className="proof-panel provider-form settings-panel">
-        <div>
-          <p className="eyebrow">Demo session</p>
-          <h2>Register or log in</h2>
-          <p>
-            Create a reporter token for fallback evidence flows, or use an invite code to issue reviewer/admin demo
-            sessions.
-          </p>
-        </div>
+        <PanelHeader
+          title="Sign in or change access"
+          description="Sign in with an existing role, or register and upgrade an account using the reviewer invite code."
+        />
 
         <form className="provider-form" onSubmit={register}>
           <label className="field">
@@ -184,7 +184,7 @@ export function AuthSettings() {
             />
           </label>
           <label className="field">
-            Role
+            Registration role
             <select
               onChange={(event) => setRole(event.target.value as Exclude<UserRole, "public">)}
               value={role}
@@ -195,7 +195,7 @@ export function AuthSettings() {
             </select>
           </label>
           <label className="field">
-            Invite code
+            Registration invite code
             <input
               onChange={(event) => setInviteCode(event.target.value)}
               placeholder="Required for reviewer/admin"
@@ -205,7 +205,7 @@ export function AuthSettings() {
           <div className="action-row">
             <button disabled={registerMutation.isPending || identity.trim().length === 0} type="submit">
               <Save size={18} aria-hidden="true" />
-              Register & save token
+              {registerMutation.isPending ? "Updating access…" : "Register / upgrade account"}
             </button>
             <button
               disabled={loginMutation.isPending || identity.trim().length === 0}
@@ -213,9 +213,13 @@ export function AuthSettings() {
               type="button"
             >
               <KeyRound size={18} aria-hidden="true" />
-              Login & save token
+              {loginMutation.isPending ? "Signing in…" : "Sign in to existing account"}
             </button>
           </div>
+          <p className="form-help">
+            Sign-in uses the role already stored for this identity. To change a reporter into a reviewer or admin,
+            choose the registration role, enter the invite code, and select Register / upgrade account.
+          </p>
         </form>
 
         {registerMutation.isError ? (
@@ -237,4 +241,8 @@ function storedToken(): string | null {
 function hasEnvDemoToken(): boolean {
   const envToken = import.meta.env.VITE_DEMO_AUTH_TOKEN;
   return typeof envToken === "string" && envToken.length > 0;
+}
+
+function roleRank(role: UserRole): number {
+  return { public: 0, reporter: 1, reviewer: 2, admin: 3 }[role];
 }

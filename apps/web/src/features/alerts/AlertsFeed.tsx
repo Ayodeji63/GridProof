@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiClient } from "../../lib/api-client.js";
 import { formatGridProofDateTime } from "../../lib/date-time.js";
+import { PageHeader, PanelHeader } from "../../components/PageHeader.js";
 
 const ALERTS_PER_PAGE = 8;
 
@@ -47,16 +48,14 @@ export function AlertsFeed() {
 
   return (
     <main className="shell narrow">
-      <section className="topbar" aria-label="Public alerts heading">
-        <div>
-          <p className="eyebrow">Public grid insights</p>
-          <h1>Alerts Feed</h1>
-        </div>
-        <div className="health-pill">
+      <PageHeader
+        title="Alerts Feed"
+        description="Public, evidence-backed outage and restoration signals across monitored feeders."
+        status={<div className="health-pill">
           <AlertTriangle size={18} aria-hidden="true" />
           <span>{alerts.length} recent</span>
-        </div>
-      </section>
+        </div>}
+      />
 
       {alertsQuery.isLoading ? <p className="status-message">Loading public alerts…</p> : null}
       {alertsQuery.isError ? <p className="status-message error">Could not load public alerts.</p> : null}
@@ -70,9 +69,10 @@ export function AlertsFeed() {
       ) : null}
 
       {alerts.length > 0 ? (
-        <section className="proof-panel alert-filter-panel" aria-label="Alert filters">
-          <div className="alert-filter-grid">
-            <label className="field alert-filter-search">
+        <section className="proof-panel feed-filter-panel" aria-label="Alert filters">
+          <PanelHeader title="Filter alerts" description="Narrow the feed by operational status, decision, or confidence." />
+          <div className="feed-filter-grid">
+            <label className="field feed-filter-search">
               Search alerts
               <input
                 aria-label="Search alerts"
@@ -134,7 +134,7 @@ export function AlertsFeed() {
               </select>
             </label>
           </div>
-          <div className="alert-filter-footer">
+          <div className="feed-filter-footer">
             <p aria-live="polite">
               {filteredAlerts.length === 0
                 ? "No matching alerts"
@@ -146,7 +146,7 @@ export function AlertsFeed() {
       ) : null}
 
       {!alertsQuery.isLoading && !alertsQuery.isError && alerts.length > 0 && filteredAlerts.length === 0 ? (
-        <section className="review-item alert-empty-state">
+        <section className="review-item feed-empty-state">
           <div>
             <h2>No alerts match these filters</h2>
             <p>Adjust the filters or clear them to see all recent alerts.</p>
@@ -170,8 +170,8 @@ export function AlertsFeed() {
                   <span className="status-badge">{decisionLabel}</span>
                   <span className="status-badge">{Math.round(alert.confidence * 100)}% automated confidence</span>
                 </div>
-                <p className="eyebrow">{alert.zoneId}</p>
-                <h2>{alert.status === "outage" ? "Outage" : "Restoration"}</h2>
+                <h2>{alert.status === "outage" ? "Possible outage" : "Restoration detected"}</h2>
+                <p className="record-reference">Zone <span className="mono">{alert.zoneId}</span></p>
                 {alert.review ? (
                   <p><strong>Initial policy decision:</strong> {pastTenseDecision(alert.review.initialDecision)}</p>
                 ) : null}
@@ -214,7 +214,7 @@ export function AlertsFeed() {
       </div>
 
       {filteredAlerts.length > ALERTS_PER_PAGE ? (
-        <nav className="action-row alert-pagination" aria-label="Alert pages">
+        <nav className="action-row feed-pagination" aria-label="Alert pages">
           <button disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)} type="button">Previous</button>
           <span>Page {currentPage} of {totalPages}</span>
           <button disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)} type="button">Next</button>

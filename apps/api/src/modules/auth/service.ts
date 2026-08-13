@@ -11,7 +11,20 @@ export async function registerUser(input: AuthRegisterRequest): Promise<User> {
 
   if (!isDatabaseConfigured()) {
     const existing = memoryUsersByIdentity.get(phoneOrEmail);
-    if (existing) return existing;
+    if (existing) {
+      const nextRole = highestRole(existing.role, input.role);
+      if (nextRole === existing.role) return existing;
+
+      const upgraded = { ...existing, role: nextRole };
+      memoryUsersByIdentity.set(phoneOrEmail, upgraded);
+      await appendAuditLog({
+        actorUserId: upgraded.id,
+        action: "user.role_upgraded",
+        before: { user: publicAuditUser(existing) },
+        after: { user: publicAuditUser(upgraded) }
+      });
+      return upgraded;
+    }
 
     const user: User = {
       id: randomUUID(),
@@ -35,7 +48,12 @@ export async function registerUser(input: AuthRegisterRequest): Promise<User> {
       insert into users (role, phone_or_email)
       values ($1, $2)
       on conflict (phone_or_email) do update
-      set role = users.role
+      set role = case
+        when excluded.role = 'admin' then 'admin'
+        when excluded.role = 'reviewer' and users.role in ('public', 'reporter') then 'reviewer'
+        when excluded.role = 'reporter' and users.role = 'public' then 'reporter'
+        else users.role
+      end
       returning id, role, phone_or_email, created_at
     `,
     [input.role, phoneOrEmail]
@@ -49,6 +67,19 @@ export async function registerUser(input: AuthRegisterRequest): Promise<User> {
     }
   });
   return user;
+}
+
+function highestRole(
+  current: UserRole,
+  requested: Exclude<UserRole, "public">
+): UserRole {
+  const rank: Record<UserRole, number> = {
+    public: 0,
+    reporter: 1,
+    reviewer: 2,
+    admin: 3
+  };
+  return rank[requested] > rank[current] ? requested : current;
 }
 
 export async function findUserForLogin(phoneOrEmail: string): Promise<User | null> {

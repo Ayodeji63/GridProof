@@ -65,6 +65,7 @@ export const evidenceEventSchema = z.object({
   source: providerTypeSchema,
   status: evidenceStatusSchema,
   voltage: z.number().nonnegative().nullable().optional(),
+  currentAmps: z.number().nonnegative().nullable().optional(),
   confidenceHint: z.number().min(0).max(1).nullable().optional(),
   rawPayload: z.record(z.unknown()),
   observedAt: isoDateTimeSchema,

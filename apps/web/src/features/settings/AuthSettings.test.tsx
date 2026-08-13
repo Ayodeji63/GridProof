@@ -105,10 +105,10 @@ describe("AuthSettings", () => {
 
     container = renderAuthSettings();
 
-    await waitFor(() => expect(container?.textContent).toContain("Register or log in"));
+    await waitFor(() => expect(container?.textContent).toContain("Sign in or change access"));
     const identityInput = inputByPlaceholder(container, "reporter@gridproof.test");
     const registerForm = Array.from(container.querySelectorAll("form")).find((form) =>
-      form.textContent?.includes("Register & save token")
+      form.textContent?.includes("Register / upgrade account")
     );
     if (!registerForm) throw new Error("Expected register form");
 
@@ -141,10 +141,10 @@ describe("AuthSettings", () => {
 
     container = renderAuthSettings();
 
-    await waitFor(() => expect(container?.textContent).toContain("Register or log in"));
+    await waitFor(() => expect(container?.textContent).toContain("Sign in or change access"));
     const identityInput = inputByPlaceholder(container, "reporter@gridproof.test");
     const loginButton = Array.from(container.querySelectorAll("button")).find((button) =>
-      button.textContent?.includes("Login & save token")
+      button.textContent?.includes("Sign in to existing account")
     );
     if (!loginButton) throw new Error("Expected login button");
 

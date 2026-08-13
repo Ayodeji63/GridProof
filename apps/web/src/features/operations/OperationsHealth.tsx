@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { apiClient } from "../../lib/api-client.js";
 import { formatGridProofDateTime } from "../../lib/date-time.js";
+import { PageHeader, PanelHeader } from "../../components/PageHeader.js";
 
 export function OperationsHealth() {
   const healthQuery = useQuery({
@@ -31,16 +32,14 @@ export function OperationsHealth() {
 
   return (
     <main className="shell">
-      <section className="topbar" aria-label="Operations health heading">
-        <div>
-          <p className="eyebrow">Observability</p>
-          <h1>Operations Health</h1>
-        </div>
-        <div className="health-pill">
+      <PageHeader
+        title="Operations Health"
+        description="Runtime visibility for the evidence pipeline, API services, and deployment readiness."
+        status={<div className="health-pill">
           <ShieldCheck size={18} aria-hidden="true" />
           <span>{health?.ok ? "API healthy" : healthQuery.isError ? "API unavailable" : "Checking API"}</span>
-        </div>
-      </section>
+        </div>}
+      />
 
       {healthQuery.isLoading || metricsQuery.isLoading ? <p className="status-message">Loading system health…</p> : null}
       {healthQuery.isError ? <p className="status-message error">Could not load API health.</p> : null}
@@ -56,8 +55,7 @@ export function OperationsHealth() {
 
       <section className="dashboard-grid">
         <section className="zone-panel" aria-label="Pipeline counters">
-          <p className="eyebrow">Pipeline counters</p>
-          <h2>Current process totals</h2>
+          <PanelHeader title="Pipeline counters" description="Current process totals since the API started." />
           <dl>
             <Counter label="Evidence ingested" value={counters?.evidenceIngested} />
             <Counter label="Candidates detected" value={counters?.candidatesDetected} />
@@ -68,8 +66,7 @@ export function OperationsHealth() {
         </section>
 
         <section className="zone-panel" aria-label="Health snapshot">
-          <p className="eyebrow">Health snapshot</p>
-          <h2>Runtime status</h2>
+          <PanelHeader title="Runtime status" description="Live responses from the health and metrics endpoints." />
           <dl>
             <div>
               <dt>Last health check</dt>
@@ -96,8 +93,7 @@ export function OperationsHealth() {
         </section>
 
         <section className="zone-panel" aria-label="Deployment readiness">
-          <p className="eyebrow">Deployment readiness</p>
-          <h2>Demo-critical configuration</h2>
+          <PanelHeader title="Deployment readiness" description="Configuration required for reliable demo operation." />
           {readiness ? (
             <dl>
               {readiness.checks.map((check) => (

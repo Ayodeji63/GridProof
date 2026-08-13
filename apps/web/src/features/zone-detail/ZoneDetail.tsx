@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router-dom";
 import { apiClient } from "../../lib/api-client.js";
 import { formatGridProofDateTime } from "../../lib/date-time.js";
 import { useRealtime } from "../../lib/realtime.js";
+import { PageHeader, PanelHeader } from "../../components/PageHeader.js";
 
 export function ZoneDetail() {
   const { zoneId } = useParams();
@@ -22,16 +23,14 @@ export function ZoneDetail() {
 
   return (
     <main className="shell">
-      <section className="topbar" aria-label="Zone detail heading">
-        <div>
-          <p className="eyebrow">Zone timeline</p>
-          <h1>{history?.zone.name ?? "Zone Detail"}</h1>
-        </div>
-        <div className="health-pill">
+      <PageHeader
+        title={history?.zone.name ?? "Zone Detail"}
+        description="Feeder evidence history, reliability epochs, and candidate event timeline."
+        status={<div className="health-pill">
           <Activity size={18} aria-hidden="true" />
           <span>{history ? history.zone.discosFeederCode : "Loading zone"}</span>
-        </div>
-      </section>
+        </div>}
+      />
 
       {historyQuery.isLoading ? <p className="status-message">Loading zone history…</p> : null}
       {historyQuery.isError ? (
@@ -53,8 +52,7 @@ export function ZoneDetail() {
 
           <section className="dashboard-grid">
             <div className="zone-panel">
-              <p className="eyebrow">Feeder metadata</p>
-              <h2>{history.zone.name}</h2>
+              <PanelHeader title="Feeder metadata" description={history.zone.name} />
               <dl>
                 <div>
                   <dt>Zone ID</dt>
@@ -84,8 +82,7 @@ export function ZoneDetail() {
             </div>
 
             <section className="zone-panel" aria-label="Epoch scores">
-              <p className="eyebrow">On-chain proof cadence</p>
-              <h2>Epoch scores</h2>
+              <PanelHeader title="Epoch scores" description="Reliability windows prepared for on-chain proof." />
               {epochScores.length === 0 ? <p className="status-message">No epoch scores yet.</p> : null}
               <div className="notification-list">
                 {epochScores.map((score) => (
@@ -114,8 +111,7 @@ export function ZoneDetail() {
           </section>
 
           <section className="zone-panel timeline-panel" aria-label="Candidate timeline">
-            <p className="eyebrow">Evidence timeline</p>
-            <h2>Candidate events</h2>
+            <PanelHeader title="Candidate events" description="Chronological outage and restoration assessments." />
             {candidates.length === 0 ? <p className="status-message">No outage/restoration candidates yet.</p> : null}
             <div className="notification-list">
               {candidates.map((candidate) => (

@@ -48,4 +48,33 @@ describe("auth service", () => {
     expect(reviewer.role).toBe("reviewer");
     expect(admin.role).toBe("admin");
   });
+
+  it("upgrades an existing reporter when a valid reviewer invite is supplied", async () => {
+    await registerUser({ phoneOrEmail: "operator@gridproof.test", role: "reporter" });
+    process.env.GRIDPROOF_AUTH_INVITE_CODE = "demo-invite";
+
+    const reviewer = await registerUser({
+      phoneOrEmail: "operator@gridproof.test",
+      role: "reviewer",
+      inviteCode: "demo-invite"
+    });
+    const loginUser = await findUserForLogin("operator@gridproof.test");
+
+    expect(reviewer.role).toBe("reviewer");
+    expect(loginUser?.role).toBe("reviewer");
+    expect(listMemoryAuditLogs("user.role_upgraded")).toHaveLength(1);
+  });
+
+  it("does not let open reporter registration downgrade a privileged account", async () => {
+    process.env.GRIDPROOF_AUTH_INVITE_CODE = "demo-invite";
+    await registerUser({
+      phoneOrEmail: "admin@gridproof.test",
+      role: "admin",
+      inviteCode: "demo-invite"
+    });
+
+    const existing = await registerUser({ phoneOrEmail: "admin@gridproof.test", role: "reporter" });
+
+    expect(existing.role).toBe("admin");
+  });
 });

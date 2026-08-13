@@ -226,6 +226,7 @@ function telemetryBody(resolved: ResolvedEvent): Record<string, unknown> {
   const deviceId = devEuiFor(zone.index, event.meter);
   const providerWallet = sensorWalletFor(zone.index);
   const idempotencyKey = idempotencyKeyFor(deviceId, observedAtUnix);
+  const currentAmps = event.currentAmps ?? (event.status === "grid_up" ? 36 + event.meter * 8 : event.status === "grid_down" ? 0 : undefined);
 
   const signable = {
     deviceId,
@@ -234,7 +235,8 @@ function telemetryBody(resolved: ResolvedEvent): Record<string, unknown> {
     idempotencyKey,
     observedAt,
     status: event.status,
-    ...(event.voltage === undefined ? {} : { voltage: event.voltage })
+    ...(event.voltage === undefined ? {} : { voltage: event.voltage }),
+    ...(currentAmps === undefined ? {} : { currentAmps })
   };
 
   return {

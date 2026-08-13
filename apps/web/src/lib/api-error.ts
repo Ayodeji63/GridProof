@@ -12,3 +12,7 @@ export class ApiError extends Error {
 export function isAuthenticationError(error: unknown): boolean {
   return error instanceof ApiError && (error.status === 401 || error.status === 403);
 }
+
+export function isAuthorizationError(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 403;
+}

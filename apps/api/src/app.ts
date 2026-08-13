@@ -9,6 +9,7 @@ import { notFoundHandler } from "./middleware/error.js";
 import { notificationsRouter } from "./modules/notifications/routes.js";
 import { providersRouter } from "./modules/providers/routes.js";
 import { systemRouter } from "./routes/system.js";
+import { demoRouter } from "./modules/demo/routes.js";
 
 export function createApp() {
   const app = express();
@@ -28,6 +29,7 @@ export function createApp() {
   app.use("/api/v1", systemRouter);
   app.use("/api/v1", dashboardRouter);
   app.use("/api/v1", notificationsRouter);
+  app.use("/api/v1", demoRouter);
   app.use("/api/v1/auth", authRouter);
   app.use("/api/v1/ingest", ingestionRouter);
   app.use("/api/v1/providers", providersRouter);

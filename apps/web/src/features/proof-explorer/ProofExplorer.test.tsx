@@ -90,6 +90,44 @@ describe("ProofExplorer", () => {
     await waitFor(() => expect(container?.textContent).toContain("No epoch score has been committed off-chain"));
     expect(container.textContent).not.toContain(epochScore.evidenceHash);
   });
+
+  it("confirms when the evidence hash is copied", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window.navigator, "clipboard", {
+      configurable: true,
+      value: { writeText }
+    });
+    proofMock.mockResolvedValue({ epochScore, commitment: null });
+
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <MemoryRouter initialEntries={[`/proof/${epochScore.zoneId}/latest`]}>
+            <Routes>
+              <Route element={<ProofExplorer />} path="/proof/:zoneId/:epoch" />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+    });
+
+    await waitFor(() => expect(container?.textContent).toContain("Copy hash"));
+    const copyButton = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("Copy hash")
+    );
+    if (!copyButton) throw new Error("Expected copy hash button");
+
+    await act(async () => {
+      copyButton.click();
+    });
+
+    expect(writeText).toHaveBeenCalledWith(epochScore.evidenceHash);
+    expect(copyButton.textContent).toContain("Copied");
+  });
 });
 
 async function waitFor(assertion: () => void): Promise<void> {

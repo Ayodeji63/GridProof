@@ -1,11 +1,15 @@
 import { CheckCircle2, Clock3, Copy, ExternalLink, RefreshCw, Send, XCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { apiClient } from "../../lib/api-client.js";
 import { formatGridProofDateTime } from "../../lib/date-time.js";
+import { PageHeader } from "../../components/PageHeader.js";
 
 export function ProofExplorer() {
   const { zoneId, epoch } = useParams();
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  const copyResetTimer = useRef<number | null>(null);
   const proofQuery = useQuery({
     queryKey: ["proof", zoneId, epoch],
     queryFn: () => apiClient.proof(requireRouteParam(zoneId, "zoneId"), requireRouteParam(epoch, "epoch")),
@@ -19,10 +23,28 @@ export function ProofExplorer() {
   const txHash = commitment?.txHash ?? null;
   const explorerUrl = commitment?.explorerUrl ?? null;
 
+  useEffect(() => () => {
+    if (copyResetTimer.current !== null) window.clearTimeout(copyResetTimer.current);
+  }, []);
+
+  async function copyEvidenceHash() {
+    if (!epochScore?.evidenceHash) return;
+    try {
+      await navigator.clipboard.writeText(epochScore.evidenceHash);
+      setCopyState("copied");
+    } catch {
+      setCopyState("failed");
+    }
+    if (copyResetTimer.current !== null) window.clearTimeout(copyResetTimer.current);
+    copyResetTimer.current = window.setTimeout(() => setCopyState("idle"), 2_000);
+  }
+
   return (
     <main className="shell narrow">
-      <p className="eyebrow">On-chain evidence</p>
-      <h1>Proof Explorer</h1>
+      <PageHeader
+        title="Proof Explorer"
+        description="Verify a feeder reliability epoch and follow its settlement status on BOT Chain."
+      />
       <section className="proof-panel">
         {proofQuery.isLoading ? <p>Loading proof from GridProof API…</p> : null}
         {proofQuery.isError ? <p className="status-message error">Could not load this proof. Check the zone and epoch, then retry.</p> : null}
@@ -78,13 +100,15 @@ export function ProofExplorer() {
             </dl>
             <div className="action-row">
               <button
+                aria-live="polite"
+                className={copyState === "copied" ? "is-success" : copyState === "failed" ? "is-error" : undefined}
                 disabled={!epochScore.evidenceHash}
-                onClick={() => navigator.clipboard.writeText(epochScore.evidenceHash)}
+                onClick={() => void copyEvidenceHash()}
                 type="button"
                 title="Copy proof hash"
               >
-                <Copy size={18} aria-hidden="true" />
-                Copy hash
+                {copyState === "copied" ? <CheckCircle2 size={18} aria-hidden="true" /> : <Copy size={18} aria-hidden="true" />}
+                {copyState === "copied" ? "Copied" : copyState === "failed" ? "Copy failed" : "Copy hash"}
               </button>
               <button disabled={proofQuery.isFetching} onClick={() => void proofQuery.refetch()} type="button">
                 <RefreshCw size={18} aria-hidden="true" />

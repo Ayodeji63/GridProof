@@ -1,6 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { DEMO_NATIONAL_ZONES } from "@gridproof/shared-types";
-import { rollupByDisco } from "./Dashboard.js";
+import { calculateFeederMetrics, rollupByDisco } from "./Dashboard.js";
+
+describe("calculateFeederMetrics", () => {
+  it("uses every tracked feeder as the denominator and does not invent missing readings", () => {
+    const metrics = calculateFeederMetrics([
+      { latestUptimeBps: 9200, latestVoltage: 230, latestCurrentAmps: 14 },
+      { latestUptimeBps: 8700, latestVoltage: 0, latestCurrentAmps: 0 },
+      { latestUptimeBps: null, latestVoltage: null, latestCurrentAmps: null },
+      { latestUptimeBps: 9000, latestVoltage: 215 }
+    ]);
+
+    expect(metrics.total).toBe(4);
+    expect(metrics.darAtTarget).toEqual({ count: 2, percentage: 50 });
+    expect(metrics.darBelowTarget).toEqual({ count: 1, percentage: 25 });
+    expect(metrics.activeVoltage).toEqual({ count: 2, percentage: 50 });
+    expect(metrics.activeCurrent).toEqual({ count: 1, percentage: 25 });
+    expect(metrics.currentReported).toBe(2);
+  });
+});
 
 describe("rollupByDisco", () => {
   it("returns a row for all 11 DisCos, with zeroed coverage for absent ones", () => {

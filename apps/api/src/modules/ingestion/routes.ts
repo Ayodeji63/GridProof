@@ -230,11 +230,12 @@ function isValidTelemetrySignature(
     observedAt: string;
     status: string;
     voltage?: number;
+    currentAmps?: number;
     signature: string;
   },
   secret: string
 ): boolean {
-  const signedPayload = [
+  const fields: Array<string | number> = [
     input.deviceId,
     input.providerWallet.toLowerCase(),
     input.zoneId,
@@ -242,7 +243,11 @@ function isValidTelemetrySignature(
     input.observedAt,
     input.status,
     input.voltage ?? ""
-  ].join(".");
+  ];
+  // Keep signatures from existing voltage-only devices valid. Devices that
+  // report current append it as an eighth authenticated field.
+  if (input.currentAmps !== undefined) fields.push(input.currentAmps);
+  const signedPayload = fields.join(".");
 
   const expected = createHmac("sha256", secret).update(signedPayload).digest("hex");
   const provided = input.signature.toLowerCase();

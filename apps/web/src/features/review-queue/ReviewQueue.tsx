@@ -2,9 +2,10 @@ import { Check, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { apiClient } from "../../lib/api-client.js";
-import { isAuthenticationError } from "../../lib/api-error.js";
+import { isAuthenticationError, isAuthorizationError } from "../../lib/api-error.js";
 import { formatGridProofDateTime } from "../../lib/date-time.js";
 import { ReviewerSignInPrompt } from "../settings/ReviewerSignInPrompt.js";
+import { PageHeader } from "../../components/PageHeader.js";
 
 export function ReviewQueue() {
   const queryClient = useQueryClient();
@@ -29,13 +30,17 @@ export function ReviewQueue() {
 
   const items = reviewQueue.data?.items ?? [];
   const authRequired = reviewQueue.isError && isAuthenticationError(reviewQueue.error);
+  const forbidden = reviewQueue.isError && isAuthorizationError(reviewQueue.error);
 
   return (
     <main className="shell narrow">
-      <p className="eyebrow">Human-in-the-loop</p>
-      <h1>Reviewer Console</h1>
+      <PageHeader
+        title="Reviewer Console"
+        description="Resolve ambiguous AI assessments before they become verified grid events."
+        status={<div className="health-pill"><span>{items.length} awaiting review</span></div>}
+      />
       {reviewQueue.isLoading ? <p className="status-message">Loading escalated evidence…</p> : null}
-      {authRequired ? <ReviewerSignInPrompt /> : null}
+      {authRequired ? <ReviewerSignInPrompt forbidden={forbidden} /> : null}
       {reviewQueue.isError && !authRequired ? (
         <p className="status-message error">Could not load the review queue. Check the API connection and retry.</p>
       ) : null}
@@ -54,8 +59,8 @@ export function ReviewQueue() {
         return (
           <section className="review-item" key={item.id}>
             <div>
-              <p className="eyebrow">{item.candidate.zoneId}</p>
               <h2>{item.candidate.status === "outage" ? "Possible outage" : "Possible restoration"}</h2>
+              <p className="record-reference">Zone <span className="mono">{item.candidate.zoneId}</span></p>
               <p>{item.hypothesis}</p>
               <dl>
                 <div>
@@ -87,22 +92,24 @@ export function ReviewQueue() {
             </div>
             <div className="action-row">
               <button
+                className="decision-approve"
                 disabled={isResolving || note.trim().length === 0}
                 onClick={() => resolveReview.mutate({ id: item.id, decision: "approve", note: note.trim() })}
                 type="button"
                 title="Approve evidence for submission"
               >
                 <Check size={18} aria-hidden="true" />
-                Approve
+                {isResolving && resolveReview.variables?.decision === "approve" ? "Approving…" : "Approve"}
               </button>
               <button
+                className="decision-reject"
                 disabled={isResolving || note.trim().length === 0}
                 onClick={() => resolveReview.mutate({ id: item.id, decision: "reject", note: note.trim() })}
                 type="button"
                 title="Reject evidence"
               >
                 <X size={18} aria-hidden="true" />
-                Reject
+                {isResolving && resolveReview.variables?.decision === "reject" ? "Rejecting…" : "Reject"}
               </button>
             </div>
           </section>

@@ -92,6 +92,7 @@ export const telemetryIngestRequestSchema = z.object({
   observedAt: z.string().datetime({ offset: true }),
   status: evidenceStatusSchema,
   voltage: z.number().nonnegative().optional(),
+  currentAmps: z.number().nonnegative().optional(),
   signature: z.string().min(32)
 });
 export type TelemetryIngestRequest = z.infer<typeof telemetryIngestRequestSchema>;
@@ -130,7 +131,9 @@ export const zonesResponseSchema = z.object({
   zones: z.array(
     zoneSchema.extend({
       latestStatus: evidenceStatusSchema,
-      latestUptimeBps: z.number().int().min(0).max(10_000).nullable()
+      latestUptimeBps: z.number().int().min(0).max(10_000).nullable(),
+      latestVoltage: z.number().nonnegative().nullable().optional(),
+      latestCurrentAmps: z.number().nonnegative().nullable().optional()
     })
   )
 });
@@ -248,6 +251,75 @@ export const notificationsResponseSchema = z.object({
   notifications: z.array(notificationRecordSchema)
 });
 export type NotificationsResponse = z.infer<typeof notificationsResponseSchema>;
+
+export const demoScenarioSchema = z.enum(["ambiguous_outage", "confirmed_outage", "restoration"]);
+export type DemoScenario = z.infer<typeof demoScenarioSchema>;
+
+export const demoWalletChallengeRequestSchema = z.object({
+  walletAddress: walletAddressSchema
+});
+export type DemoWalletChallengeRequest = z.infer<typeof demoWalletChallengeRequestSchema>;
+
+export const demoWalletChallengeResponseSchema = z.object({
+  nonce: uuidSchema,
+  message: z.string().min(1),
+  expiresAt: isoDateTimeSchema
+});
+export type DemoWalletChallengeResponse = z.infer<typeof demoWalletChallengeResponseSchema>;
+
+export const demoSimulationRequestSchema = z.object({
+  walletAddress: walletAddressSchema,
+  nonce: uuidSchema,
+  signature: z.string().regex(/^0x[a-fA-F0-9]+$/, "Expected a wallet signature"),
+  zoneId: uuidSchema,
+  scenario: demoScenarioSchema
+});
+export type DemoSimulationRequest = z.infer<typeof demoSimulationRequestSchema>;
+
+const demoDecisionSchema = z.object({
+  agentName: z.string().min(1),
+  decision: agentDecisionStatusSchema,
+  confidence: z.number().min(0).max(1),
+  hypothesis: z.string().min(1),
+  createdAt: isoDateTimeSchema
+});
+
+export const demoSimulationSchema = z.object({
+  id: uuidSchema,
+  initiatedBy: walletAddressSchema,
+  scenario: demoScenarioSchema,
+  zoneId: uuidSchema,
+  createdAt: isoDateTimeSchema,
+  stage: z.enum(["telemetry_accepted", "ai_queued", "ai_complete", "proof_preview", "chain_pending", "chain_confirmed", "chain_failed"]),
+  telemetry: z.object({
+    evidenceId: uuidSchema,
+    deviceId: z.string().min(1),
+    status: evidenceStatusSchema,
+    voltage: z.number().nonnegative(),
+    currentAmps: z.number().nonnegative(),
+    observedAt: isoDateTimeSchema
+  }),
+  candidate: z.object({
+    id: uuidSchema,
+    status: candidateStatusSchema,
+    confidence: z.number().min(0).max(1)
+  }),
+  policyDecision: demoDecisionSchema,
+  aiDecision: demoDecisionSchema.nullable(),
+  agentState: z.enum(["not_required", "queued", "complete"]),
+  chain: z.object({
+    mode: z.enum(["preview", "live"]),
+    status: z.enum(["not_requested", "preview", "pending", "confirmed", "failed"]),
+    txHash: txHashSchema.nullable(),
+    explorerUrl: z.string().url().nullable()
+  })
+});
+export type DemoSimulation = z.infer<typeof demoSimulationSchema>;
+
+export const demoSimulationResponseSchema = z.object({
+  simulation: demoSimulationSchema
+});
+export type DemoSimulationResponse = z.infer<typeof demoSimulationResponseSchema>;
 
 export const alertItemSchema = z.object({
   id: uuidSchema,

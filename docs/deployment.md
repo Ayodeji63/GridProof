@@ -217,23 +217,23 @@ The preflight fails on malformed manifests, zero or duplicate contract addresses
 After deployment, verify all three contracts on the BOT Chain explorer using the official explorer API/browser URLs:
 
 ```bash
-forge verify-contract 0x1fc7e41e48a9a96a37c5dfa9b882e20c584ccaa1 src/NodeRegistry.sol:NodeRegistry \
+forge verify-contract 0x78624f4025A3B41524c2EdCD99270500a1aC9477 src/NodeRegistry.sol:NodeRegistry \
   --chain-id "$BOTCHAIN_CHAIN_ID" \
   --verifier blockscout \
   --verifier-url "https://scan.bohr.life/api/" \
-  --constructor-args "$(cast abi-encode 'constructor(address)' 0x54509b12aB6Ad9D0F3590eD241980433ffCCFe2C)"
+  --constructor-args "$(cast abi-encode 'constructor(address)' 0x53f04Af7ff379a5Cef4a923e1a2B368791AaF3d1)"
 
-forge verify-contract 0xf8f4061e0d021bdb5f35747be15c8e630245f66f src/UptimeAttestation.sol:UptimeAttestation \
+forge verify-contract 0xB3A976CC574fdBf1488a3912B244433244e3f189 src/UptimeAttestation.sol:UptimeAttestation \
   --chain-id "$BOTCHAIN_CHAIN_ID" \
   --verifier blockscout \
   --verifier-url "https://scan.bohr.life/api/" \
-  --constructor-args "$(cast abi-encode 'constructor(address,address,uint64)' 0x54509b12aB6Ad9D0F3590eD241980433ffCCFe2C 0x3cfFEC3f8fdaE6Dff40A1CA2FbFc8dcF003669D4 3600)"
+  --constructor-args "$(cast abi-encode 'constructor(address,address,uint64)' 0x53f04Af7ff379a5Cef4a923e1a2B368791AaF3d1 0x79955f9ABadCeb277596EE06D65981ce6377aB12 3600)"
 
-forge verify-contract 0x354f30b7f88cd8544d689057034f9b20e079dfb6 src/ReputationEscrow.sol:ReputationEscrow \
+forge verify-contract 0x2E084a59dA63b5B2E0E44DA6990aa03A10Dfe2fc src/ReputationEscrow.sol:ReputationEscrow \
   --chain-id "$BOTCHAIN_CHAIN_ID" \
   --verifier blockscout \
   --verifier-url "https://scan.bohr.life/api/" \
-  --constructor-args "$(cast abi-encode 'constructor(address,address,address,uint256,uint256,uint64)' 0x54509b12aB6Ad9D0F3590eD241980433ffCCFe2C 0x3cfFEC3f8fdaE6Dff40A1CA2FbFc8dcF003669D4 0xf8f4061E0D021bDB5f35747Be15c8e630245F66F 500000000000000000 100000000000000000 259200)"
+  --constructor-args "$(cast abi-encode 'constructor(address,address,address,uint256,uint256,uint64)' 0x53f04Af7ff379a5Cef4a923e1a2B368791AaF3d1 0x79955f9ABadCeb277596EE06D65981ce6377aB12 0x78624f4025A3B41524c2EdCD99270500a1aC9477 500000000000000000 100000000000000000 259200)"
 ```
 
 Only replace placeholders with values from the deployment manifest and `.env`.
@@ -297,6 +297,8 @@ Recommended:
 - `INGEST_RATE_LIMIT_WINDOW_MS=60000`
 - `REDIS_RATE_LIMIT_TIMEOUT_MS=500`
 - `NOTIFICATION_WEBHOOK_URL=<optional-demo-alert-webhook>`
+- `GRIDPROOF_DEMO_ENABLED=true` enables the public Judge Demo Lab API in production.
+- Keep `GRIDPROOF_DEMO_ALLOW_CHAIN_WRITE` unset or `false` on mainnet so synthetic judge runs stop at a clearly labelled proof preview. Enable it only on an isolated demo network when synthetic commitments are intentional.
 - `NOTIFICATION_WEBHOOK_TOKEN=<optional-webhook-token>`
 - `SENTRY_DSN=<optional-api-sentry-dsn>`
 - `SENTRY_ENVIRONMENT=production`

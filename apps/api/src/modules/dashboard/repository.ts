@@ -19,10 +19,14 @@ export async function listZones(): Promise<ZonesResponse["zones"]> {
     centroid_lng: string;
     latest_status: "grid_up" | "grid_down" | "unknown" | null;
     latest_uptime_bps: number | null;
+    latest_voltage: string | null;
+    latest_current_amps: string | null;
   }>(`
     select z.id, z.zone_key, z.name, z.discos_feeder_code, z.region,
            z.centroid_lat, z.centroid_lng,
            latest.status as latest_status,
+           latest_measurement.voltage as latest_voltage,
+           latest_measurement.current_amps as latest_current_amps,
            latest_score.uptime_bps as latest_uptime_bps
     from zones z
     left join lateral (
@@ -32,6 +36,13 @@ export async function listZones(): Promise<ZonesResponse["zones"]> {
       order by observed_at desc
       limit 1
     ) latest on true
+    left join lateral (
+      select voltage, raw_payload ->> 'currentAmps' as current_amps
+      from evidence_events
+      where zone_id = z.id and source = 'sensor'
+      order by observed_at desc
+      limit 1
+    ) latest_measurement on true
     left join lateral (
       select uptime_bps
       from epoch_scores
@@ -53,7 +64,9 @@ export async function listZones(): Promise<ZonesResponse["zones"]> {
       lng: Number(row.centroid_lng)
     },
     latestStatus: row.latest_status ?? "unknown",
-    latestUptimeBps: row.latest_uptime_bps
+    latestUptimeBps: row.latest_uptime_bps,
+    latestVoltage: row.latest_voltage == null ? null : Number(row.latest_voltage),
+    latestCurrentAmps: row.latest_current_amps == null ? null : Number(row.latest_current_amps)
   }));
 }
 

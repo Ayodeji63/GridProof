@@ -45,7 +45,9 @@ const zones = [
     region: "Oyo",
     centroid: { lat: 8.133, lng: 4.25 },
     latestStatus: "grid_up" as const,
-    latestUptimeBps: 9000
+    latestUptimeBps: 9000,
+    latestVoltage: 230,
+    latestCurrentAmps: 12
   },
   {
     id: "378b2fae-55dd-488f-aefd-c9bc17f8d4ff",
@@ -55,7 +57,9 @@ const zones = [
     region: "Oyo",
     centroid: { lat: 8.151, lng: 4.238 },
     latestStatus: "grid_down" as const,
-    latestUptimeBps: 7000
+    latestUptimeBps: 7000,
+    latestVoltage: 0,
+    latestCurrentAmps: 0
   }
 ];
 
@@ -80,12 +84,12 @@ describe("Dashboard", () => {
 
     await waitFor(() => expect(container?.textContent).toContain("API connected"));
 
-    expect(container.textContent).toContain("Tracked zones");
-    expect(container.textContent).toContain("2");
-    expect(container.textContent).toContain("Average uptime");
-    expect(container.textContent).toContain("80.00%");
-    expect(container.textContent).toContain("Zones down");
-    expect(container.textContent).toContain("1");
+    expect(container.textContent).toContain("DAR at or above 90%");
+    expect(container.textContent).toContain("DAR below 90%");
+    expect(container.textContent).toContain("Active voltage");
+    expect(container.textContent).toContain("Active current");
+    expect(container.textContent).toContain("50.0%");
+    expect(container.textContent).toContain("1 of 2 tracked feeders");
     expect(container.textContent).toContain("Ogbomoso Feeder A");
     expect(linkHrefs(container)).toContain(`/zones/${zones[0]?.id}`);
     expect(linkHrefs(container)).toContain(`/proof/${zones[0]?.id}/latest`);

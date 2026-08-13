@@ -16,6 +16,8 @@ export type DemoZone = {
   centroid: { lat: number; lng: number };
   latestStatus: "grid_up" | "grid_down" | "unknown";
   latestUptimeBps: number | null;
+  latestVoltage: number | null;
+  latestCurrentAmps: number | null;
 };
 
 function zoneKey(seed: number): string {
@@ -74,5 +76,7 @@ export const DEMO_NATIONAL_ZONES: DemoZone[] = SEEDS.map((seed, index) => ({
   region: seed.region,
   centroid: { lat: seed.lat, lng: seed.lng },
   latestStatus: seed.status,
-  latestUptimeBps: seed.uptimeBps
+  latestUptimeBps: seed.uptimeBps,
+  latestVoltage: seed.status === "grid_up" ? 220 + (index % 4) * 3 : seed.status === "grid_down" ? 0 : null,
+  latestCurrentAmps: seed.status === "grid_up" ? 7 + (index % 6) * 2 : seed.status === "grid_down" ? 0 : null
 }));

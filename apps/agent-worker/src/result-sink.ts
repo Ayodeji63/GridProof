@@ -72,10 +72,39 @@ export async function persistOrchestrationResult(
     return { persisted: true, decision, epochScore: null, commitment: null };
   }
 
+  if (input.simulation && !input.simulation.allowChainWrite) {
+    await auditSimulationProofPreview(input, decision, execute);
+    return { persisted: true, decision, epochScore: null, commitment: null };
+  }
+
   const { epochScore, commitment } = await queueApprovedDecisionForChain(input.candidate, execute);
   await auditChainQueued(epochScore, commitment, execute);
 
   return { persisted: true, decision, epochScore, commitment };
+}
+
+async function auditSimulationProofPreview(
+  input: OrchestrationInput,
+  decision: AgentDecision,
+  execute: QueryFn
+): Promise<void> {
+  await execute(
+    `
+      insert into audit_logs (id, action, before, after, created_at)
+      values ($1, 'demo.proof_previewed', null, $2::jsonb, $3)
+    `,
+    [
+      randomUUID(),
+      JSON.stringify({
+        runId: input.simulation?.runId,
+        initiatedBy: input.simulation?.initiatedBy,
+        candidateEventId: input.candidate.id,
+        decisionId: decision.id,
+        reason: "Synthetic demo chain writes are disabled"
+      }),
+      new Date().toISOString()
+    ]
+  );
 }
 
 export async function closeResultSink(): Promise<void> {

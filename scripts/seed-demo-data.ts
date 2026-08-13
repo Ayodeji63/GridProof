@@ -278,6 +278,7 @@ async function seedEvidence(client: PoolClient): Promise<void> {
       JSON.stringify({
         deviceId: "esp32-ogb-a-demo",
         providerWallet: wallets.sensor,
+        currentAmps: 0,
       }),
       ids.restoredEvidence,
       ids.reporterProvider,
@@ -289,6 +290,7 @@ async function seedEvidence(client: PoolClient): Promise<void> {
       JSON.stringify({
         deviceId: "esp32-ogb-a-demo",
         providerWallet: wallets.sensor,
+        currentAmps: 0,
         note: "Still reading zero volts.",
       }),
       ids.zoneBEvidence1,
@@ -297,11 +299,13 @@ async function seedEvidence(client: PoolClient): Promise<void> {
       JSON.stringify({
         deviceId: "esp32-ogb-b-demo",
         providerWallet: wallets.sensorB,
+        currentAmps: 18,
       }),
       ids.zoneBEvidence2,
       JSON.stringify({
         deviceId: "esp32-ogb-b-demo",
         providerWallet: wallets.sensorB,
+        currentAmps: 17.5,
       }),
       ids.rejectEvidence,
       JSON.stringify({

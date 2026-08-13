@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import type { RegisterProviderRequest } from "@gridproof/shared-types";
 import { apiClient } from "../../lib/api-client.js";
+import { PageHeader, PanelHeader } from "../../components/PageHeader.js";
 
 const initialForm: RegisterProviderRequest = {
   walletAddress: "",
@@ -42,23 +43,18 @@ export function ProviderRegistry() {
 
   return (
     <main className="shell">
-      <section className="topbar" aria-label="Provider registry heading">
-        <div>
-          <p className="eyebrow">Evidence network</p>
-          <h1>Provider Registry</h1>
-        </div>
-        <div className="health-pill">
+      <PageHeader
+        title="Provider Registry"
+        description="Manage the sensor nodes and human reporters authorised to submit feeder evidence."
+        status={<div className="health-pill">
           <RadioTower size={18} aria-hidden="true" />
           <span>{providers.length} registered</span>
-        </div>
-      </section>
+        </div>}
+      />
 
       <section className="dashboard-grid provider-grid">
         <form className="proof-panel provider-form" onSubmit={submit}>
-          <div>
-            <p className="eyebrow">Register provider</p>
-            <h2>Add a sensor or reporter</h2>
-          </div>
+          <PanelHeader title="Register provider" description="Add a sensor node or authorised human reporter." />
           <label className="field">
             Wallet address
             <input
@@ -95,7 +91,7 @@ export function ProviderRegistry() {
               type="submit"
             >
               <UserPlus size={18} aria-hidden="true" />
-              Register provider
+              {registerProvider.isPending ? "Registering…" : "Register provider"}
             </button>
           </div>
           {lastResult ? <p className="status-message">{lastResult}</p> : null}
@@ -105,8 +101,7 @@ export function ProviderRegistry() {
         </form>
 
         <section className="zone-panel provider-list" aria-label="Registered providers">
-          <p className="eyebrow">Registered providers</p>
-          <h2>Active evidence sources</h2>
+          <PanelHeader title="Evidence sources" description="Registered providers and their current availability." />
           {providersQuery.isLoading ? <p className="status-message">Loading providers…</p> : null}
           {providersQuery.isError ? <p className="status-message error">Could not load providers.</p> : null}
           {!providersQuery.isLoading && !providersQuery.isError && providers.length === 0 ? (

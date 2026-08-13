@@ -108,5 +108,33 @@
       "Bash(timeout 25 node -e '\nconst { Client } = require\\(\"pg\"\\);\nconst url = require\\(\"fs\"\\).readFileSync\\(\"apps/api/.env\",\"utf8\"\\).split\\(/\\\\r?\\\\n/\\).find\\(l=>l.startsWith\\(\"DATABASE_URL=\"\\)\\).slice\\(13\\);\nconst c = new Client\\({ connectionString: url, ssl: { rejectUnauthorized: false } }\\);\nc.connect\\(\\)\n .then\\(\\(\\)=>c.query\\(\"select column_name from information_schema.columns where table_name=$1 order by ordinal_position\",[\"epoch_scores\"]\\)\\)\n .then\\(r=>{console.log\\(r.rows.map\\(x=>x.column_name\\).join\\(\", \"\\)\\); return c.end\\(\\);}\\)\n .catch\\(e=>{console.log\\(\"FAILED:\", e.message\\);process.exit\\(0\\);}\\);\n' 2>&1)",
       "Bash(timeout 60 node --input-type=module -e ' *)"
     ]
-  }
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ ! -f \"/home/dell/.claude/skills/impeccable/scripts/hook.mjs\" ] || node \"/home/dell/.claude/skills/impeccable/scripts/hook.mjs\"",
+            "timeout": 5,
+            "statusMessage": "Checking UI changes"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ ! -f \"/home/dell/.claude/skills/impeccable/scripts/hook.mjs\" ] || node \"/home/dell/.claude/skills/impeccable/scripts/hook.mjs\"",
+            "timeout": 30,
+            "statusMessage": "Design deep pass"
+          }
+        ]
+      }
+    ]
+  },
+  "description": "Impeccable design detector: immediate-tier checks after Edit/Write/MultiEdit on UI files, full-rule deep pass on Stop."
 }

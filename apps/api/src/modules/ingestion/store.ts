@@ -44,7 +44,8 @@ export async function upsertTelemetryEvidence(input: TelemetryIngestRequest): Pr
       voltage: input.voltage,
       rawPayload: {
         deviceId: input.deviceId,
-        providerWallet: input.providerWallet
+        providerWallet: input.providerWallet,
+        ...(input.currentAmps === undefined ? {} : { currentAmps: input.currentAmps })
       },
       observedAt: input.observedAt
     });
@@ -62,9 +63,11 @@ export async function upsertTelemetryEvidence(input: TelemetryIngestRequest): Pr
     source: "sensor",
     status: input.status,
     voltage: input.voltage,
+    currentAmps: input.currentAmps,
     rawPayload: {
       deviceId: input.deviceId,
-      providerWallet: input.providerWallet
+      providerWallet: input.providerWallet,
+      ...(input.currentAmps === undefined ? {} : { currentAmps: input.currentAmps })
     },
     observedAt: input.observedAt,
     receivedAt: now
@@ -457,11 +460,17 @@ function mapEvidenceRow(row: {
     source: row.source,
     status: row.status,
     voltage: row.voltage == null ? undefined : Number(row.voltage),
+    currentAmps: currentAmpsFromRawPayload(row.raw_payload),
     confidenceHint: row.confidence_hint == null ? undefined : Number(row.confidence_hint),
     rawPayload: row.raw_payload,
     observedAt: row.observed_at.toISOString(),
     receivedAt: row.received_at.toISOString()
   };
+}
+
+function currentAmpsFromRawPayload(rawPayload: Record<string, unknown>): number | undefined {
+  const value = rawPayload.currentAmps;
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
 }
 
 function mapCandidateRow(row: {

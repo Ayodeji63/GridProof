@@ -61,6 +61,8 @@ describe("GridProof API", () => {
     delete process.env.AGENT_REVIEW_QUEUE_BACKOFF_MS;
     delete process.env.GRIDPROOF_AUTH_INVITE_CODE;
     delete process.env.GRIDPROOF_EVIDENCE_MODE;
+    delete process.env.GRIDPROOF_DEMO_ENABLED;
+    delete process.env.GRIDPROOF_DEMO_ALLOW_CHAIN_WRITE;
     delete process.env.CORS_ORIGIN;
     delete process.env.CORS_ORIGINS;
     delete process.env.DATABASE_URL;

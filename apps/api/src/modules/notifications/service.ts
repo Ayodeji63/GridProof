@@ -51,10 +51,16 @@ export async function listNotifications(limit = 50): Promise<NotificationRecord[
 
   const result = await query<NotificationRow>(
     `
-      select id, kind, audience, channel, title, message, payload, status,
-             attempts, last_error, created_at, sent_at
-      from notification_outbox
-      order by created_at desc
+      select n.id, n.kind, n.audience, n.channel, n.title,
+             case
+               when z.id is null then n.message
+               else replace(n.message, n.payload->>'zoneId', z.id::text)
+             end as message,
+             n.payload, n.status,
+             n.attempts, n.last_error, n.created_at, n.sent_at, z.id::text as resolved_zone_id
+      from notification_outbox n
+      left join zones z on z.zone_key = n.payload->>'zoneId'
+      order by n.created_at desc
       limit $1
     `,
     [limit]
@@ -227,9 +233,14 @@ type NotificationRow = {
   last_error: string | null;
   created_at: Date;
   sent_at: Date | null;
+  resolved_zone_id: string | null;
 };
 
 function mapNotificationRow(row: NotificationRow): NotificationRecord {
+  const payload = row.resolved_zone_id
+    ? { ...row.payload, zoneId: row.resolved_zone_id }
+    : row.payload;
+
   return {
     id: row.id,
     kind: row.kind,
@@ -237,7 +248,7 @@ function mapNotificationRow(row: NotificationRow): NotificationRecord {
     channel: row.channel,
     title: row.title,
     message: row.message,
-    payload: row.payload,
+    payload,
     status: row.status,
     attempts: row.attempts,
     lastError: row.last_error,

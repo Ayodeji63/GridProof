@@ -22,7 +22,19 @@ export type PipelineResult = {
   commitment: ChainCommitment | null;
 };
 
-export async function processCandidatePipeline(candidate: CandidateEvent, evidence?: EvidenceEvent): Promise<PipelineResult> {
+export type PipelineOptions = {
+  simulation?: {
+    runId: string;
+    initiatedBy: string;
+    allowChainWrite: boolean;
+  };
+};
+
+export async function processCandidatePipeline(
+  candidate: CandidateEvent,
+  evidence?: EvidenceEvent,
+  options: PipelineOptions = {}
+): Promise<PipelineResult> {
   const decision = decisionForCandidate(candidate);
 
   if (isDatabaseConfigured()) {
@@ -31,6 +43,10 @@ export async function processCandidatePipeline(candidate: CandidateEvent, eviden
     counters.agentDecisions += 1;
 
     if (storedDecision.decision === "approve") {
+      if (options.simulation && !options.simulation.allowChainWrite) {
+        await auditSimulationProofPreview(candidate, storedDecision, options.simulation);
+        return { decision: storedDecision, epochScore: null, commitment: null };
+      }
       const epochScore = await recomputeDatabaseEpochScore(candidate);
       const commitment = await upsertDatabasePendingCommitment(epochScore);
       await auditChainQueued(epochScore, commitment, "agent_auto_approval");
@@ -40,7 +56,7 @@ export async function processCandidatePipeline(candidate: CandidateEvent, eviden
     }
 
     if (storedDecision.decision === "escalate") {
-      await queueAgentReview(candidate, evidence);
+      await queueAgentReview(candidate, evidence, options.simulation);
       domainEvents.emit("review.required", {
         candidateEventId: candidate.id,
         reason: storedDecision.hypothesis
@@ -56,6 +72,10 @@ export async function processCandidatePipeline(candidate: CandidateEvent, eviden
   counters.agentDecisions += 1;
 
   if (decision.decision === "approve") {
+    if (options.simulation && !options.simulation.allowChainWrite) {
+      await auditSimulationProofPreview(candidate, decision, options.simulation);
+      return { decision, epochScore: null, commitment: null };
+    }
     const epochScore = recomputeMemoryEpochScore(candidate);
     const commitment = pendingCommitmentForEpochScore(epochScore);
     memoryEpochScoresByKey.set(epochKey(epochScore.zoneId, epochScore.epochStart), epochScore);
@@ -67,7 +87,7 @@ export async function processCandidatePipeline(candidate: CandidateEvent, eviden
   }
 
   if (decision.decision === "escalate") {
-    await queueAgentReview(candidate, evidence);
+    await queueAgentReview(candidate, evidence, options.simulation);
     domainEvents.emit("review.required", {
       candidateEventId: candidate.id,
       reason: decision.hypothesis
@@ -614,11 +634,16 @@ async function auditAgentDecision(
   });
 }
 
-async function queueAgentReview(candidate: CandidateEvent, evidence?: EvidenceEvent): Promise<void> {
+async function queueAgentReview(
+  candidate: CandidateEvent,
+  evidence?: EvidenceEvent,
+  simulation?: PipelineOptions["simulation"]
+): Promise<void> {
   const queuedJob = await enqueueAgentReviewJob({
     candidate,
     evidence: evidence ? [evidence] : [],
-    providers: []
+    providers: [],
+    ...(simulation ? { simulation } : {})
   });
 
   await appendAuditLog({
@@ -629,6 +654,24 @@ async function queueAgentReview(candidate: CandidateEvent, evidence?: EvidenceEv
       queueName: queuedJob.queueName,
       backend: queuedJob.backend,
       candidateEventId: candidate.id
+    }
+  });
+}
+
+async function auditSimulationProofPreview(
+  candidate: CandidateEvent,
+  decision: AgentDecision,
+  simulation: NonNullable<PipelineOptions["simulation"]>
+): Promise<void> {
+  await appendAuditLog({
+    action: "demo.proof_previewed",
+    before: null,
+    after: {
+      runId: simulation.runId,
+      initiatedBy: simulation.initiatedBy,
+      candidateEventId: candidate.id,
+      decisionId: decision.id,
+      reason: "Synthetic demo chain writes are disabled"
     }
   });
 }

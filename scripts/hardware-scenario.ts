@@ -93,6 +93,7 @@ export type SensorEvent = EventCommon & {
   status: EvidenceStatus;
   /** Omitted entirely when the meter is offline — the schema rejects an explicit null. */
   voltage?: number;
+  currentAmps?: number;
 };
 
 export type ReporterEvent = EventCommon & {
@@ -187,15 +188,16 @@ export type TelemetrySignatureInput = {
   observedAt: string;
   status: string;
   voltage?: number;
+  currentAmps?: number;
 };
 
 /**
- * The exact 7-field, dot-separated string the firmware builds and the API
- * re-derives (`ingestion/routes.ts:237`). An absent voltage collapses to an
- * empty field — the trailing separator stays.
+ * The dot-separated string the firmware builds and the API re-derives. An
+ * absent voltage collapses to an empty seventh field. Optional current is an
+ * eighth field, so signatures from existing voltage-only devices remain valid.
  */
 export function telemetrySigningString(input: TelemetrySignatureInput): string {
-  return [
+  const fields: Array<string | number> = [
     input.deviceId,
     input.providerWallet.toLowerCase(),
     input.zoneId,
@@ -203,7 +205,9 @@ export function telemetrySigningString(input: TelemetrySignatureInput): string {
     input.observedAt,
     input.status,
     input.voltage ?? ""
-  ].join(".");
+  ];
+  if (input.currentAmps !== undefined) fields.push(input.currentAmps);
+  return fields.join(".");
 }
 
 export function signTelemetry(input: TelemetrySignatureInput, secret: string): string {

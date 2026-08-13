@@ -35,6 +35,7 @@ type PendingCommitmentRow = {
 };
 
 type SubmittedCommitmentRow = PendingCommitmentRow & {
+  zone_id: string;
   tx_hash: string;
 };
 
@@ -114,7 +115,8 @@ export async function indexPendingConfirmationsWithClient(
 ): Promise<IndexConfirmationsResult> {
   const pending = await query<SubmittedCommitmentRow>(
     `
-      select cc.id as commitment_id, cc.tx_hash, z.zone_key, es.epoch_start, es.uptime_bps, es.evidence_hash
+      select cc.id as commitment_id, cc.tx_hash, z.id::text as zone_id, z.zone_key,
+             es.epoch_start, es.uptime_bps, es.evidence_hash
       from chain_commitments cc
       join epoch_scores es on es.id = cc.epoch_score_id
       join zones z on z.id = es.zone_id
@@ -162,7 +164,7 @@ export async function indexPendingConfirmationsWithClient(
 
     result.txHashes.push(row.tx_hash);
     domainEvents.emit("chain.committed", {
-      zoneId: row.zone_key,
+      zoneId: row.zone_id,
       txHash: row.tx_hash,
       status: update.status
     });

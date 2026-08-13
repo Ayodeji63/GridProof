@@ -9,6 +9,11 @@ export type AgentReviewJob = {
   candidate: CandidateEvent;
   evidence: EvidenceEvent[];
   providers: Provider[];
+  simulation?: {
+    runId: string;
+    initiatedBy: string;
+    allowChainWrite: boolean;
+  };
 };
 
 export type QueuedJobRecord = {

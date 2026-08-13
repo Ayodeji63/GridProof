@@ -116,6 +116,15 @@ describe("ReviewQueue", () => {
     expect(container.querySelector('a[href="/settings"]')).not.toBeNull();
   });
 
+  it("explains when the signed-in account lacks reviewer access", async () => {
+    reviewQueueMock.mockRejectedValue(new ApiError(403, "FORBIDDEN", "User role is not allowed to access this route"));
+
+    container = renderReviewQueue();
+
+    await waitFor(() => expect(container?.textContent).toContain("Reviewer access required"));
+    expect(container.textContent).toContain("this account is not a reviewer or admin");
+  });
+
   function renderReviewQueue(): HTMLDivElement {
     const element = document.createElement("div");
     document.body.append(element);
