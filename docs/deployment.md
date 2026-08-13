@@ -298,7 +298,7 @@ Recommended:
 - `REDIS_RATE_LIMIT_TIMEOUT_MS=500`
 - `NOTIFICATION_WEBHOOK_URL=<optional-demo-alert-webhook>`
 - `GRIDPROOF_DEMO_ENABLED=true` enables the public Judge Demo Lab API in production.
-- Keep `GRIDPROOF_DEMO_ALLOW_CHAIN_WRITE` unset or `false` on mainnet so synthetic judge runs stop at a clearly labelled proof preview. Enable it only on an isolated demo network when synthetic commitments are intentional.
+- Keep `GRIDPROOF_DEMO_ALLOW_CHAIN_WRITE=false` for normal operation. Set it to `true` only for a supervised judge demo when permanent synthetic commitments are intentional; the UI still defaults each run to preview and requires the judge to explicitly select live publishing and sign that exact authorization. Disable it again after the demo to protect relayer funds.
 - `NOTIFICATION_WEBHOOK_TOKEN=<optional-webhook-token>`
 - `SENTRY_DSN=<optional-api-sentry-dsn>`
 - `SENTRY_ENVIRONMENT=production`

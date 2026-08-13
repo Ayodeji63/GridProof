@@ -4,8 +4,13 @@ import type { CandidateEvent, EvidenceEvent } from "@gridproof/shared-types";
 export type DomainEvents = {
   "evidence.received": EvidenceEvent;
   "candidate.detected": CandidateEvent;
-  "chain.committed": { zoneId: string; txHash: string; status: "pending" | "confirmed" | "failed" };
-  "review.required": { candidateEventId: string; reason: string };
+  "chain.committed": {
+    zoneId: string;
+    epochStart?: string;
+    txHash: string;
+    status: "pending" | "confirmed" | "failed";
+  };
+  "review.required": { candidateEventId: string; zoneId: string; reason: string };
 };
 
 class TypedEventBus {

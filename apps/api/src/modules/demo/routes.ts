@@ -27,13 +27,13 @@ demoRouter.post(
   rateLimit({ name: "demo-wallet-challenge", key: (req) => String(req.body?.walletAddress ?? req.ip), max: 20 }),
   validateBody(demoWalletChallengeRequestSchema),
   (req, res) => {
-    res.json(demoWalletChallengeResponseSchema.parse(createDemoWalletChallenge(req.body.walletAddress)));
+    res.json(demoWalletChallengeResponseSchema.parse(createDemoWalletChallenge(req.body)));
   }
 );
 
 demoRouter.post(
   "/demo/simulations",
-  rateLimit({ name: "demo-simulation", key: (req) => String(req.body?.walletAddress ?? req.ip), max: 10 }),
+  rateLimit({ name: "demo-simulation", key: (req) => `${req.ip}:${String(req.body?.walletAddress ?? "unknown")}`, max: 3 }),
   validateBody(demoSimulationRequestSchema),
   async (req, res, next) => {
     try {

@@ -24,10 +24,12 @@ describe("notification service", () => {
 
     domainEvents.emit("review.required", {
       candidateEventId: "c04ac0c9-73b8-49f0-97fd-52c77a38bd77",
+      zoneId: "8a27f3e2-2608-4a88-b8db-efce68be2a59",
       reason: "Reporter evidence needs confirmation."
     });
     domainEvents.emit("chain.committed", {
       zoneId: "8a27f3e2-2608-4a88-b8db-efce68be2a59",
+      epochStart: "2026-08-13T20:00:00.000Z",
       txHash: `0x${"f".repeat(64)}`,
       status: "confirmed"
     });
@@ -35,6 +37,9 @@ describe("notification service", () => {
     await waitFor(async () => expect(await listNotifications()).toHaveLength(2));
 
     const notifications = await listNotifications();
+    expect(notifications.find((item) => item.payload.txHash === `0x${"f".repeat(64)}`)?.payload.epochStart).toBe(
+      "2026-08-13T20:00:00.000Z"
+    );
     expect(notifications.map((item) => item.kind).sort()).toEqual(["chain_committed", "review_required"]);
     expect(notifications.every((item) => item.channel === "outbox")).toBe(true);
     expect(notifications.every((item) => item.status === "queued")).toBe(true);

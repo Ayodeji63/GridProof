@@ -25,6 +25,7 @@
     "deployment:data": "tsx scripts/verify-data-services.ts",
     "deployment:evidence": "tsx scripts/verify-demo-evidence.ts",
     "deployment:verify": "tsx scripts/verify-deployment.ts",
+    "contracts:install": "cd smart-contracts && forge install --no-git --shallow openzeppelin-contracts=OpenZeppelin/openzeppelin-contracts@v5.7.0 forge-std=foundry-rs/forge-std@v1.16.2",
     "contracts:test": "forge test --root smart-contracts",
     "foundry:test": "forge test --root smart-contracts"
   },

@@ -9,6 +9,7 @@ import {
   Cpu,
   FlaskConical,
   Link2,
+  LogOut,
   RadioTower,
   ShieldCheck,
   WalletCards,
@@ -55,6 +56,7 @@ export function DemoLab() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [zoneId, setZoneId] = useState("");
   const [scenario, setScenario] = useState<DemoScenario>("ambiguous_outage");
+  const [publishToChain, setPublishToChain] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
   const [initialSimulation, setInitialSimulation] = useState<DemoSimulation | null>(null);
   const [busy, setBusy] = useState<"wallet" | "simulation" | null>(null);
@@ -93,6 +95,14 @@ export function DemoLab() {
     }
   }
 
+  function disconnectWallet() {
+    setWalletAddress(null);
+    setPublishToChain(false);
+    setRunId(null);
+    setInitialSimulation(null);
+    setError(null);
+  }
+
   async function runSimulation() {
     if (!walletAddress || !zoneId) return;
     setBusy("simulation");
@@ -100,14 +110,20 @@ export function DemoLab() {
     setRunId(null);
     setInitialSimulation(null);
     try {
-      const challenge = await apiClient.demoWalletChallenge({ walletAddress });
+      const challenge = await apiClient.demoWalletChallenge({
+        walletAddress,
+        zoneId,
+        scenario,
+        publishToChain
+      });
       const signature = await signWalletMessage(walletAddress, challenge.message);
       const response = await apiClient.runDemoSimulation({
         walletAddress,
         nonce: challenge.nonce,
         signature,
         zoneId,
-        scenario
+        scenario,
+        publishToChain
       });
       setInitialSimulation(response.simulation);
       setRunId(response.simulation.id);
@@ -123,14 +139,16 @@ export function DemoLab() {
       <PageHeader
         title="Judge Demo Lab"
         description="Authorize a synthetic feeder reading, send it through GridProof, and inspect every decision from telemetry to proof."
-        status={<div className="health-pill"><FlaskConical size={18} aria-hidden="true" /><span>Safe simulation</span></div>}
+        status={<div className="health-pill"><FlaskConical size={18} aria-hidden="true" /><span>{publishToChain ? "Mainnet write armed" : "Safe simulation"}</span></div>}
       />
 
-      <section className="demo-safety-note" aria-label="Simulation safety">
+      <section className={`demo-safety-note ${publishToChain ? "live" : ""}`} aria-label="Simulation safety">
         <ShieldCheck size={20} aria-hidden="true" />
         <div>
-          <strong>No funds or wallet transaction required</strong>
-          <p>Your signature authorizes one synthetic run. Demo evidence is marked and BOT Chain submission remains preview-only unless the server explicitly enables demo writes.</p>
+          <strong>{publishToChain ? "Live proof publishing selected" : "No funds or wallet transaction required"}</strong>
+          <p>{publishToChain
+            ? "Your signature authorizes one synthetic run and permits GridProof's backend relayer to publish an approved proof. The relayer pays gas; your wallet does not send a transaction or transfer funds."
+            : "Your signature authorizes one synthetic run. Demo evidence is marked and the resulting BOT Chain proof remains a preview."}</p>
         </div>
       </section>
 
@@ -147,7 +165,22 @@ export function DemoLab() {
               <h3>Connect a judge wallet</h3>
               <p>The wallet proves who initiated the run without becoming a telemetry provider.</p>
               {walletAddress ? (
-                <div className="demo-wallet-connected"><Check size={16} aria-hidden="true" /><span>{shortAddress(walletAddress)}</span></div>
+                <div className="demo-wallet-session">
+                  <div className="demo-wallet-connected" title={walletAddress}>
+                    <Check size={16} aria-hidden="true" />
+                    <span>{shortAddress(walletAddress)}</span>
+                  </div>
+                  <button
+                    aria-label={`Disconnect wallet ${shortAddress(walletAddress)} from GridProof`}
+                    className="demo-disconnect-action"
+                    disabled={busy !== null}
+                    onClick={disconnectWallet}
+                    type="button"
+                  >
+                    <LogOut size={16} aria-hidden="true" />
+                    Disconnect
+                  </button>
+                </div>
               ) : (
                 <button className="demo-primary-action" disabled={busy !== null} onClick={connectWallet} type="button">
                   <WalletCards size={18} aria-hidden="true" />
@@ -201,6 +234,30 @@ export function DemoLab() {
             </div>
           </div>
 
+          <div className="demo-control-step">
+            <div className="demo-step-number">4</div>
+            <div className="demo-control-content">
+              <h3>Choose proof mode</h3>
+              <label className={`demo-chain-consent ${publishToChain ? "selected" : ""}`}>
+                <input
+                  checked={publishToChain}
+                  disabled={busy !== null}
+                  onChange={(event) => setPublishToChain(event.target.checked)}
+                  type="checkbox"
+                />
+                <span>
+                  <strong>Publish proof to BOT Chain</strong>
+                  <small>Replays the reading in an unused completed epoch, then creates a permanent mainnet record through GridProof's relayer after approval.</small>
+                </span>
+              </label>
+              <p className="demo-chain-mode-note">
+                {publishToChain
+                  ? "Live mode: the authorization includes the feeder, scenario, and permission to publish a clearly marked historical simulation."
+                  : "Preview mode: no transaction will be submitted."}
+              </p>
+            </div>
+          </div>
+
           <button
             className="demo-run-action"
             disabled={!walletAddress || !zoneId || busy !== null}
@@ -208,7 +265,11 @@ export function DemoLab() {
             type="button"
           >
             <Zap size={19} aria-hidden="true" />
-            {busy === "simulation" ? "Sign in your wallet…" : "Run this simulation"}
+            {busy === "simulation"
+              ? "Sign in your wallet…"
+              : publishToChain
+                ? "Authorize mainnet proof"
+                : "Run this simulation"}
           </button>
           {!walletAddress ? <p className="demo-action-hint">Connect a wallet to enable the simulation.</p> : null}
           {error ? <p className="status-message error" role="alert">{error}</p> : null}
@@ -326,6 +387,7 @@ function formatVoltage(voltage: number): string {
 function stageLabel(simulation: DemoSimulation): string {
   if (simulation.agentState === "queued") return "AI processing";
   if (simulation.chain.status === "confirmed") return "Proof confirmed";
+  if (simulation.chain.status === "pending" && !simulation.chain.txHash) return "Proof queued";
   if (simulation.chain.status === "preview") return "Proof previewed";
   return "Run complete";
 }
@@ -333,6 +395,9 @@ function stageLabel(simulation: DemoSimulation): string {
 function chainMessage(simulation: DemoSimulation): string {
   if (simulation.chain.mode === "preview" && simulation.chain.status === "preview") {
     return "The commitment payload was previewed. Synthetic demo evidence was not written to mainnet.";
+  }
+  if (simulation.chain.status === "pending" && !simulation.chain.txHash) {
+    return "The proof is queued. The hourly epoch must finish before the contract permits the relayer to submit it.";
   }
   if (simulation.chain.status === "pending") return "The relayer submitted the commitment and GridProof is waiting for confirmation.";
   if (simulation.chain.status === "confirmed") return "The availability commitment is confirmed on BOT Chain.";

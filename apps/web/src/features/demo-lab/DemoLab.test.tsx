@@ -93,7 +93,8 @@ describe("DemoLab", () => {
     vi.mocked(apiClient.demoWalletChallenge).mockResolvedValue({
       nonce: "00000000-0000-4000-8000-000000000023",
       message: "Authorize GridProof demo",
-      expiresAt: "2026-08-13T12:05:00.000Z"
+      expiresAt: "2026-08-13T12:05:00.000Z",
+      chainMode: "preview"
     });
     vi.mocked(signWalletMessage).mockResolvedValue(`0x${"f".repeat(130)}`);
     vi.mocked(apiClient.runDemoSimulation).mockResolvedValue({ simulation });
@@ -108,11 +109,90 @@ describe("DemoLab", () => {
     act(() => buttonByText(container!, "Run this simulation").click());
     await waitFor(() => expect(container?.textContent).toContain("AI processing"));
 
-    expect(apiClient.demoWalletChallenge).toHaveBeenCalledWith({ walletAddress: wallet });
+    expect(apiClient.demoWalletChallenge).toHaveBeenCalledWith({
+      walletAddress: wallet,
+      zoneId: zone.id,
+      scenario: "ambiguous_outage",
+      publishToChain: false
+    });
+    expect(apiClient.runDemoSimulation).toHaveBeenCalledWith(expect.objectContaining({ publishToChain: false }));
     expect(signWalletMessage).toHaveBeenCalledWith(wallet, "Authorize GridProof demo");
     expect(container.textContent).toContain("72 V");
     expect(container.textContent).toContain("Candidate outage requires additional verification.");
     expect(container.textContent).toContain("queued for the anomaly-analysis and evidence-verification agents");
+  });
+
+  it("disconnects the judge wallet and clears the current demo run", async () => {
+    vi.mocked(apiClient.zones).mockResolvedValue({ zones: [zone] });
+    vi.mocked(connectInjectedWallet).mockResolvedValue(wallet);
+    vi.mocked(apiClient.demoWalletChallenge).mockResolvedValue({
+      nonce: "00000000-0000-4000-8000-000000000023",
+      message: "Authorize GridProof demo",
+      expiresAt: "2026-08-13T12:05:00.000Z",
+      chainMode: "preview"
+    });
+    vi.mocked(signWalletMessage).mockResolvedValue(`0x${"f".repeat(130)}`);
+    vi.mocked(apiClient.runDemoSimulation).mockResolvedValue({ simulation });
+    vi.mocked(apiClient.demoSimulation).mockResolvedValue({ simulation });
+
+    container = renderDemoLab();
+    await waitFor(() => expect(container?.textContent).toContain("BEDC-AKR-01"));
+
+    act(() => buttonByText(container!, "Connect wallet").click());
+    await waitFor(() => expect(container?.textContent).toContain("0x1111…1111"));
+    act(() => buttonByText(container!, "Run this simulation").click());
+    await waitFor(() => expect(container?.textContent).toContain("AI processing"));
+
+    act(() => buttonByText(container!, "Disconnect").click());
+
+    expect(container.textContent).toContain("Connect wallet");
+    expect(container.textContent).toContain("Ready for a telemetry run");
+    expect(container.textContent).not.toContain("0x1111…1111");
+    expect(container.textContent).not.toContain("AI processing");
+    expect(buttonByText(container, "Run this simulation").disabled).toBe(true);
+  });
+
+  it("requires explicit consent and signs a live chain authorization", async () => {
+    vi.mocked(apiClient.zones).mockResolvedValue({ zones: [zone] });
+    vi.mocked(connectInjectedWallet).mockResolvedValue(wallet);
+    vi.mocked(apiClient.demoWalletChallenge).mockResolvedValue({
+      nonce: "00000000-0000-4000-8000-000000000024",
+      message: "Authorize GridProof live proof",
+      expiresAt: "2026-08-13T12:05:00.000Z",
+      chainMode: "live"
+    });
+    vi.mocked(signWalletMessage).mockResolvedValue(`0x${"e".repeat(130)}`);
+    vi.mocked(apiClient.runDemoSimulation).mockResolvedValue({
+      simulation: {
+        ...simulation,
+        stage: "chain_pending",
+        agentState: "not_required",
+        chain: { mode: "live", status: "pending", txHash: null, explorerUrl: null }
+      }
+    });
+    vi.mocked(apiClient.demoSimulation).mockResolvedValue({ simulation });
+
+    container = renderDemoLab();
+    await waitFor(() => expect(container?.textContent).toContain("BEDC-AKR-01"));
+    act(() => buttonByText(container!, "Connect wallet").click());
+    await waitFor(() => expect(container?.textContent).toContain("0x1111…1111"));
+
+    const publishCheckbox = container.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    if (!publishCheckbox) throw new Error("Publish checkbox not found");
+    act(() => publishCheckbox.click());
+    expect(container.textContent).toContain("Live proof publishing selected");
+
+    act(() => buttonByText(container!, "Authorize mainnet proof").click());
+    await waitFor(() => expect(apiClient.runDemoSimulation).toHaveBeenCalled());
+
+    expect(apiClient.demoWalletChallenge).toHaveBeenCalledWith({
+      walletAddress: wallet,
+      zoneId: zone.id,
+      scenario: "ambiguous_outage",
+      publishToChain: true
+    });
+    expect(apiClient.runDemoSimulation).toHaveBeenCalledWith(expect.objectContaining({ publishToChain: true }));
+    expect(signWalletMessage).toHaveBeenCalledWith(wallet, "Authorize GridProof live proof");
   });
 
   function renderDemoLab(): HTMLDivElement {

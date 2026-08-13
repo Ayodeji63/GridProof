@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiClient } from "../../lib/api-client.js";
 import { NotificationCenter } from "./NotificationCenter.js";
 import { ApiError } from "../../lib/api-error.js";
@@ -14,11 +14,23 @@ import { ApiError } from "../../lib/api-error.js";
 
 vi.mock("../../lib/api-client.js", () => ({
   apiClient: {
-    notifications: vi.fn()
+    notifications: vi.fn(),
+    zones: vi.fn()
   }
 }));
 
 const notificationsMock = vi.mocked(apiClient.notifications);
+const zonesMock = vi.mocked(apiClient.zones);
+const zone = {
+  id: "8a27f3e2-2608-4a88-b8db-efce68be2a59",
+  zoneKey: `0x${"1".repeat(64)}`,
+  name: "Akure Feeder A",
+  discosFeederCode: "BEDC-AKR-01",
+  region: "Ondo",
+  centroid: { lat: 7.25, lng: 5.19 },
+  latestStatus: "grid_up" as const,
+  latestUptimeBps: 9800
+};
 const notification = {
   id: "60455448-ba24-4e5d-8cf9-d1057e1777cf",
   kind: "chain_committed" as const,
@@ -29,6 +41,7 @@ const notification = {
   payload: {
     zoneId: "8a27f3e2-2608-4a88-b8db-efce68be2a59",
     txHash: `0x${"f".repeat(64)}`,
+    epochStart: "2026-08-09T12:00:00.000Z",
     status: "confirmed"
   },
   status: "sent" as const,
@@ -51,6 +64,10 @@ describe("NotificationCenter", () => {
     vi.clearAllMocks();
   });
 
+  beforeEach(() => {
+    zonesMock.mockResolvedValue({ zones: [zone] });
+  });
+
   it("renders notification details and proof links", async () => {
     notificationsMock.mockResolvedValue({ notifications: [notification] });
 
@@ -60,9 +77,14 @@ describe("NotificationCenter", () => {
 
     expect(container.textContent).toContain("Chain confirmed");
     expect(container.textContent).toContain("Webhook delivered");
+    expect(container.textContent).toContain("Akure Feeder A");
+    expect(container.textContent).toContain("BEDC-AKR-01");
+    expect(container.textContent).toContain("Akure Feeder A (BEDC-AKR-01) chain commitment is confirmed.");
     expect(container.textContent).toContain(notification.payload.txHash);
     const link = container.querySelector("a");
-    expect(link?.getAttribute("href")).toBe(`/proof/${notification.payload.zoneId}/latest`);
+    expect(link?.getAttribute("href")).toBe(
+      `/proof/${notification.payload.zoneId}/${encodeURIComponent(notification.payload.epochStart)}`
+    );
   });
 
   it("does not present a local outbox record as a pending chain event", async () => {
@@ -135,7 +157,7 @@ describe("NotificationCenter", () => {
     act(() => clear.click());
     const search = inputByLabel(container, "Search notifications");
     act(() => {
-      setInputValue(search, "Akure");
+      setInputValue(search, "Akure feeder evidence");
       search.dispatchEvent(new Event("input", { bubbles: true }));
     });
 

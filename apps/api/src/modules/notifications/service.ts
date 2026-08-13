@@ -53,13 +53,19 @@ export async function listNotifications(limit = 50): Promise<NotificationRecord[
     `
       select n.id, n.kind, n.audience, n.channel, n.title,
              case
-               when z.id is null then n.message
+               when z.id is null or n.payload->>'zoneId' is null then n.message
                else replace(n.message, n.payload->>'zoneId', z.id::text)
              end as message,
              n.payload, n.status,
-             n.attempts, n.last_error, n.created_at, n.sent_at, z.id::text as resolved_zone_id
+             n.attempts, n.last_error, n.created_at, n.sent_at, z.id::text as resolved_zone_id,
+             coalesce(n.payload->>'epochStart', es.epoch_start::text) as resolved_epoch_start
       from notification_outbox n
-      left join zones z on z.zone_key = n.payload->>'zoneId'
+      left join candidate_events c on c.id::text = n.payload->>'candidateEventId'
+      left join chain_commitments cc on cc.tx_hash = nullif(n.payload->>'txHash', '')
+      left join epoch_scores es on es.id = cc.epoch_score_id
+      left join zones z on z.id::text = n.payload->>'zoneId'
+        or z.zone_key = n.payload->>'zoneId'
+        or z.id = c.zone_id
       order by n.created_at desc
       limit $1
     `,
@@ -226,7 +232,7 @@ type NotificationRow = {
   audience: NotificationAudience;
   channel: NotificationChannel;
   title: string;
-  message: string;
+  message: string | null;
   payload: Record<string, unknown>;
   status: NotificationStatus;
   attempts: number;
@@ -234,12 +240,15 @@ type NotificationRow = {
   created_at: Date;
   sent_at: Date | null;
   resolved_zone_id: string | null;
+  resolved_epoch_start: string | null;
 };
 
 function mapNotificationRow(row: NotificationRow): NotificationRecord {
-  const payload = row.resolved_zone_id
-    ? { ...row.payload, zoneId: row.resolved_zone_id }
-    : row.payload;
+  const payload = {
+    ...row.payload,
+    ...(row.resolved_zone_id ? { zoneId: row.resolved_zone_id } : {}),
+    ...(row.resolved_epoch_start ? { epochStart: new Date(row.resolved_epoch_start).toISOString() } : {})
+  };
 
   return {
     id: row.id,
@@ -247,7 +256,7 @@ function mapNotificationRow(row: NotificationRow): NotificationRecord {
     audience: row.audience,
     channel: row.channel,
     title: row.title,
-    message: row.message,
+    message: row.message ?? fallbackNotificationMessage(row.kind, payload),
     payload,
     status: row.status,
     attempts: row.attempts,
@@ -255,4 +264,10 @@ function mapNotificationRow(row: NotificationRow): NotificationRecord {
     createdAt: row.created_at.toISOString(),
     sentAt: row.sent_at?.toISOString() ?? null
   };
+}
+
+function fallbackNotificationMessage(kind: NotificationKind, payload: Record<string, unknown>): string {
+  if (kind === "review_required") return "Evidence is waiting for reviewer confirmation.";
+  const status = typeof payload.status === "string" ? payload.status : "pending";
+  return `A BOT Chain proof commitment is ${status}.`;
 }

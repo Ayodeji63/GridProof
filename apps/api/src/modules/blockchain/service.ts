@@ -165,6 +165,7 @@ export async function indexPendingConfirmationsWithClient(
     result.txHashes.push(row.tx_hash);
     domainEvents.emit("chain.committed", {
       zoneId: row.zone_id,
+      epochStart: row.epoch_start.toISOString(),
       txHash: row.tx_hash,
       status: update.status
     });
@@ -195,6 +196,7 @@ export async function submitPendingCommitmentsWithClient(
       join zones z on z.id = es.zone_id
       where cc.status = 'pending'
         and cc.tx_hash is null
+        and es.epoch_start + interval '1 hour' <= now()
       order by cc.created_at asc
       limit $1
     `,

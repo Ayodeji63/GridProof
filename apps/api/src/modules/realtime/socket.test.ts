@@ -62,6 +62,7 @@ describe("realtime socket gateway", () => {
 
     domainEvents.emit("review.required", {
       candidateEventId: "c04ac0c9-73b8-49f0-97fd-52c77a38bd77",
+      zoneId: "8a27f3e2-2608-4a88-b8db-efce68be2a59",
       reason: "Below auto-approval threshold."
     });
 

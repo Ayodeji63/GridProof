@@ -15,6 +15,7 @@ export function ReviewQueue() {
     queryFn: apiClient.reviewQueue,
     retry: (failureCount, error) => !isAuthenticationError(error) && failureCount < 1
   });
+  const zonesQuery = useQuery({ queryKey: ["zones"], queryFn: apiClient.zones, retry: 1 });
   const resolveReview = useMutation({
     mutationFn: ({ id, decision, note }: { id: string; decision: "approve" | "reject"; note: string }) =>
       apiClient.resolveReview(id, { decision, note }),
@@ -29,6 +30,7 @@ export function ReviewQueue() {
   });
 
   const items = reviewQueue.data?.items ?? [];
+  const zones = zonesQuery.data?.zones ?? [];
   const authRequired = reviewQueue.isError && isAuthenticationError(reviewQueue.error);
   const forbidden = reviewQueue.isError && isAuthorizationError(reviewQueue.error);
 
@@ -55,12 +57,17 @@ export function ReviewQueue() {
       {items.map((item) => {
         const note = notesById[item.id] ?? "";
         const isResolving = resolveReview.isPending && resolveReview.variables?.id === item.id;
+        const feeder = zones.find((zone) => zone.id === item.candidate.zoneId);
 
         return (
           <section className="review-item" key={item.id}>
             <div>
               <h2>{item.candidate.status === "outage" ? "Possible outage" : "Possible restoration"}</h2>
-              <p className="record-reference">Zone <span className="mono">{item.candidate.zoneId}</span></p>
+              <p className="record-reference feeder-reference">
+                <strong>{feeder?.name ?? "Unknown feeder"}</strong>
+                {feeder ? <span>{feeder.discosFeederCode}</span> : null}
+                <span className="mono">Zone ID {item.candidate.zoneId}</span>
+              </p>
               <p>{item.hypothesis}</p>
               <dl>
                 <div>

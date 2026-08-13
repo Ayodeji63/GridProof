@@ -51,7 +51,7 @@ export async function processCandidatePipeline(
       const commitment = await upsertDatabasePendingCommitment(epochScore);
       await auditChainQueued(epochScore, commitment, "agent_auto_approval");
       counters.chainSubmissions += 1;
-      domainEvents.emit("chain.committed", { zoneId: candidate.zoneId, txHash: commitment.txHash ?? "", status: commitment.status });
+      domainEvents.emit("chain.committed", { zoneId: candidate.zoneId, epochStart: epochScore.epochStart, txHash: commitment.txHash ?? "", status: commitment.status });
       return { decision: storedDecision, epochScore, commitment };
     }
 
@@ -59,6 +59,7 @@ export async function processCandidatePipeline(
       await queueAgentReview(candidate, evidence, options.simulation);
       domainEvents.emit("review.required", {
         candidateEventId: candidate.id,
+        zoneId: candidate.zoneId,
         reason: storedDecision.hypothesis
       });
     }
@@ -82,7 +83,7 @@ export async function processCandidatePipeline(
     memoryCommitmentsByEpochScore.set(epochScore.id, commitment);
     await auditChainQueued(epochScore, commitment, "agent_auto_approval");
     counters.chainSubmissions += 1;
-    domainEvents.emit("chain.committed", { zoneId: candidate.zoneId, txHash: commitment.txHash ?? "", status: commitment.status });
+    domainEvents.emit("chain.committed", { zoneId: candidate.zoneId, epochStart: epochScore.epochStart, txHash: commitment.txHash ?? "", status: commitment.status });
     return { decision, epochScore, commitment };
   }
 
@@ -90,6 +91,7 @@ export async function processCandidatePipeline(
     await queueAgentReview(candidate, evidence, options.simulation);
     domainEvents.emit("review.required", {
       candidateEventId: candidate.id,
+      zoneId: candidate.zoneId,
       reason: decision.hypothesis
     });
   }
@@ -206,7 +208,7 @@ export async function resolveReviewDecision(
       memoryCommitmentsByEpochScore.set(epochScore.id, commitment);
       await auditChainQueued(epochScore, commitment, "review_approval");
       counters.chainSubmissions += 1;
-      domainEvents.emit("chain.committed", { zoneId: candidate.zoneId, txHash: commitment.txHash ?? "", status: commitment.status });
+      domainEvents.emit("chain.committed", { zoneId: candidate.zoneId, epochStart: epochScore.epochStart, txHash: commitment.txHash ?? "", status: commitment.status });
       return { decision: updated, epochScore, commitment };
     }
 
@@ -262,7 +264,7 @@ export async function resolveReviewDecision(
   const commitment = await upsertDatabasePendingCommitment(epochScore);
   await auditChainQueued(epochScore, commitment, "review_approval");
   counters.chainSubmissions += 1;
-  domainEvents.emit("chain.committed", { zoneId: candidate.zoneId, txHash: commitment.txHash ?? "", status: commitment.status });
+  domainEvents.emit("chain.committed", { zoneId: candidate.zoneId, epochStart: epochScore.epochStart, txHash: commitment.txHash ?? "", status: commitment.status });
   return { decision: mappedDecision, epochScore, commitment };
 }
 

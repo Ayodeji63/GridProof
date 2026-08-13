@@ -256,14 +256,18 @@ export const demoScenarioSchema = z.enum(["ambiguous_outage", "confirmed_outage"
 export type DemoScenario = z.infer<typeof demoScenarioSchema>;
 
 export const demoWalletChallengeRequestSchema = z.object({
-  walletAddress: walletAddressSchema
+  walletAddress: walletAddressSchema,
+  zoneId: uuidSchema,
+  scenario: demoScenarioSchema,
+  publishToChain: z.boolean().default(false)
 });
 export type DemoWalletChallengeRequest = z.infer<typeof demoWalletChallengeRequestSchema>;
 
 export const demoWalletChallengeResponseSchema = z.object({
   nonce: uuidSchema,
   message: z.string().min(1),
-  expiresAt: isoDateTimeSchema
+  expiresAt: isoDateTimeSchema,
+  chainMode: z.enum(["preview", "live"])
 });
 export type DemoWalletChallengeResponse = z.infer<typeof demoWalletChallengeResponseSchema>;
 
@@ -272,7 +276,8 @@ export const demoSimulationRequestSchema = z.object({
   nonce: uuidSchema,
   signature: z.string().regex(/^0x[a-fA-F0-9]+$/, "Expected a wallet signature"),
   zoneId: uuidSchema,
-  scenario: demoScenarioSchema
+  scenario: demoScenarioSchema,
+  publishToChain: z.boolean().default(false)
 });
 export type DemoSimulationRequest = z.infer<typeof demoSimulationRequestSchema>;
 

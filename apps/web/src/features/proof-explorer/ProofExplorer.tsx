@@ -74,9 +74,19 @@ export function ProofExplorer() {
                 <dd>{epochScore.zoneId}</dd>
               </div>
               <div>
-                <dt>Epoch</dt>
+                <dt>Measurement epoch</dt>
                 <dd><time dateTime={epochScore.epochStart}>{formatGridProofDateTime(epochScore.epochStart)}</time></dd>
               </div>
+              <div>
+                <dt>Proof queued</dt>
+                <dd><time dateTime={commitment?.createdAt ?? epochScore.createdAt}>{formatGridProofDateTime(commitment?.createdAt ?? epochScore.createdAt)}</time></dd>
+              </div>
+              {commitment?.confirmedAt ? (
+                <div>
+                  <dt>Transaction confirmed</dt>
+                  <dd><time dateTime={commitment.confirmedAt}>{formatGridProofDateTime(commitment.confirmedAt)}</time></dd>
+                </div>
+              ) : null}
               <div>
                 <dt>Uptime</dt>
                 <dd>{(epochScore.uptimeBps / 100).toFixed(2)}%</dd>

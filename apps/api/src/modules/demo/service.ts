@@ -5,9 +5,11 @@ import type {
   DemoScenario,
   DemoSimulation,
   DemoSimulationRequest,
+  DemoWalletChallengeRequest,
   DemoWalletChallengeResponse
 } from "@gridproof/shared-types";
 import { appendAuditLog, listMemoryAuditLogs } from "../audit/service.js";
+import { submitPendingCommitments } from "../blockchain/service.js";
 import { isDatabaseConfigured, query } from "../../lib/db.js";
 import { counters } from "../../lib/metrics.js";
 import { upsertTelemetryEvidence } from "../ingestion/store.js";
@@ -24,6 +26,9 @@ type DemoChallenge = {
   walletAddress: string;
   message: string;
   expiresAt: string;
+  zoneId: string;
+  scenario: DemoScenario;
+  publishToChain: boolean;
   used: boolean;
 };
 
@@ -40,21 +45,44 @@ type DemoRunRecord = {
   allowChainWrite: boolean;
 };
 
-export function createDemoWalletChallenge(walletAddress: string): DemoWalletChallengeResponse {
+export function createDemoWalletChallenge(input: DemoWalletChallengeRequest): DemoWalletChallengeResponse {
+  const allowChainWrite = process.env.GRIDPROOF_DEMO_ALLOW_CHAIN_WRITE === "true";
+  if (input.publishToChain && !allowChainWrite) {
+    throw Object.assign(new Error("Live BOT Chain publishing is not enabled for this demo deployment"), {
+      statusCode: 403,
+      code: "DEMO_CHAIN_WRITE_DISABLED"
+    });
+  }
+
   const nonce = randomUUID();
   const expiresAt = new Date(Date.now() + CHALLENGE_TTL_MS).toISOString();
+  const chainMode = input.publishToChain ? "live" : "preview";
   const message = [
     "GridProof Judge Demo",
     "",
     "Authorize one synthetic telemetry simulation.",
-    "This signature does not submit a blockchain transaction or transfer funds.",
-    `Wallet: ${walletAddress.toLowerCase()}`,
+    input.publishToChain
+      ? "If this evidence is approved, authorize the GridProof backend relayer to publish its availability proof to BOT Chain. The relayer pays gas; this signature does not transfer funds."
+      : "Preview the proof only. This signature does not submit a blockchain transaction or transfer funds.",
+    `Wallet: ${input.walletAddress.toLowerCase()}`,
+    `Zone: ${input.zoneId}`,
+    `Scenario: ${input.scenario}`,
+    `Chain mode: ${chainMode}`,
     `Nonce: ${nonce}`,
     `Expires: ${expiresAt}`
   ].join("\n");
 
-  memoryChallenges.set(nonce, { nonce, walletAddress: walletAddress.toLowerCase(), message, expiresAt, used: false });
-  return { nonce, message, expiresAt };
+  memoryChallenges.set(nonce, {
+    nonce,
+    walletAddress: input.walletAddress.toLowerCase(),
+    message,
+    expiresAt,
+    zoneId: input.zoneId,
+    scenario: input.scenario,
+    publishToChain: input.publishToChain,
+    used: false
+  });
+  return { nonce, message, expiresAt, chainMode };
 }
 
 export async function runDemoSimulation(input: DemoSimulationRequest): Promise<DemoSimulation> {
@@ -62,14 +90,15 @@ export async function runDemoSimulation(input: DemoSimulationRequest): Promise<D
 
   const id = randomUUID();
   const createdAt = new Date().toISOString();
+  const observedAt = await demoObservedAt(input.zoneId, input.publishToChain);
   const reading = readingFor(input.scenario);
-  const allowChainWrite = process.env.GRIDPROOF_DEMO_ALLOW_CHAIN_WRITE === "true";
+  const allowChainWrite = input.publishToChain;
   const ingest = await upsertTelemetryEvidence({
     deviceId: DEMO_DEVICE_ID,
     providerWallet: DEMO_PROVIDER_WALLET,
     zoneId: input.zoneId,
     idempotencyKey: `judge-demo:${id}`,
-    observedAt: createdAt,
+    observedAt,
     status: reading.status,
     voltage: reading.voltage,
     currentAmps: reading.currentAmps,
@@ -88,6 +117,18 @@ export async function runDemoSimulation(input: DemoSimulationRequest): Promise<D
   const pipeline = await processCandidatePipeline(ingest.candidateEvent, ingest.evidenceEvent, {
     simulation: { runId: id, initiatedBy: input.walletAddress.toLowerCase(), allowChainWrite }
   });
+  if (allowChainWrite && pipeline.commitment) {
+    await submitPendingCommitments().catch(async (error: unknown) => {
+      await appendAuditLog({
+        action: "demo.chain_submission_failed",
+        after: {
+          runId: id,
+          candidateEventId: ingest.candidateEvent?.id,
+          message: error instanceof Error ? error.message : "Unknown chain submission failure"
+        }
+      });
+    });
+  }
   const run: DemoRunRecord = {
     id,
     initiatedBy: input.walletAddress.toLowerCase(),
@@ -102,7 +143,7 @@ export async function runDemoSimulation(input: DemoSimulationRequest): Promise<D
       status: reading.status,
       voltage: reading.voltage,
       currentAmps: reading.currentAmps,
-      observedAt: createdAt
+      observedAt
     },
     createdAt,
     allowChainWrite
@@ -119,7 +160,9 @@ export async function runDemoSimulation(input: DemoSimulationRequest): Promise<D
       zoneId: run.zoneId,
       evidenceEventId: run.evidenceId,
       candidateEventId: run.candidateId,
-      chainMode: allowChainWrite ? "live" : "preview"
+      chainMode: allowChainWrite ? "live" : "preview",
+      observationMode: allowChainWrite ? "completed_epoch_replay" : "current_preview",
+      observedAt
     }
   });
 
@@ -153,6 +196,16 @@ function consumeChallenge(input: DemoSimulationRequest): void {
       code: "DEMO_WALLET_MISMATCH"
     });
   }
+  if (
+    challenge.zoneId !== input.zoneId
+    || challenge.scenario !== input.scenario
+    || challenge.publishToChain !== input.publishToChain
+  ) {
+    throw Object.assign(new Error("Simulation details do not match the signed authorization challenge"), {
+      statusCode: 401,
+      code: "DEMO_CHALLENGE_MISMATCH"
+    });
+  }
 
   let recovered: string;
   try {
@@ -181,6 +234,41 @@ function readingFor(scenario: DemoScenario): {
   if (scenario === "confirmed_outage") return { status: "grid_down", voltage: 0, currentAmps: 0 };
   if (scenario === "restoration") return { status: "grid_up", voltage: 10_700, currentAmps: 42 };
   return { status: "grid_down", voltage: 72, currentAmps: 3.2 };
+}
+
+async function demoObservedAt(zoneId: string, publishToChain: boolean): Promise<string> {
+  if (!publishToChain) return new Date().toISOString();
+
+  if (isDatabaseConfigured()) {
+    const result = await query<{ epoch_start: Date }>(
+      `
+        select candidate_epoch.epoch_start
+        from generate_series(
+          date_trunc('hour', now()) - interval '1 hour',
+          date_trunc('hour', now()) - interval '168 hours',
+          interval '-1 hour'
+        ) as candidate_epoch(epoch_start)
+        where not exists (
+          select 1 from epoch_scores es
+          where es.zone_id = $1 and es.epoch_start = candidate_epoch.epoch_start
+        )
+        order by candidate_epoch.epoch_start desc
+        limit 1
+      `,
+      [zoneId]
+    );
+    const epochStart = result.rows[0]?.epoch_start;
+    if (!epochStart) {
+      throw Object.assign(new Error("No unused completed epoch is available for this feeder's live demo proof"), {
+        statusCode: 409,
+        code: "DEMO_EPOCH_UNAVAILABLE"
+      });
+    }
+    return new Date(epochStart.getTime() + 30 * 60 * 1000).toISOString();
+  }
+
+  const previousEpochStart = Math.floor(Date.now() / (60 * 60 * 1000)) * (60 * 60 * 1000) - 60 * 60 * 1000;
+  return new Date(previousEpochStart + 30 * 60 * 1000).toISOString();
 }
 
 async function simulationFromRun(run: DemoRunRecord): Promise<DemoSimulation> {

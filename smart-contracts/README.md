@@ -18,6 +18,7 @@ https://book.getfoundry.sh/
 ### Build
 
 ```shell
+$ pnpm contracts:install
 $ forge build
 ```
 

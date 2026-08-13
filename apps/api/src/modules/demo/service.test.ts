@@ -22,7 +22,12 @@ describe("judge demo simulation", () => {
 
   it("authorizes a wallet and previews an auto-approved proof without writing to chain", async () => {
     const wallet = Wallet.createRandom();
-    const challenge = createDemoWalletChallenge(wallet.address);
+    const challenge = createDemoWalletChallenge({
+      walletAddress: wallet.address,
+      zoneId,
+      scenario: "confirmed_outage",
+      publishToChain: false
+    });
     const signature = await wallet.signMessage(challenge.message);
 
     const simulation = await runDemoSimulation({
@@ -30,7 +35,8 @@ describe("judge demo simulation", () => {
       nonce: challenge.nonce,
       signature,
       zoneId,
-      scenario: "confirmed_outage"
+      scenario: "confirmed_outage",
+      publishToChain: false
     });
 
     expect(simulation.initiatedBy).toBe(wallet.address.toLowerCase());
@@ -43,14 +49,20 @@ describe("judge demo simulation", () => {
 
   it("queues ambiguous telemetry for the AI worker", async () => {
     const wallet = Wallet.createRandom();
-    const challenge = createDemoWalletChallenge(wallet.address);
+    const challenge = createDemoWalletChallenge({
+      walletAddress: wallet.address,
+      zoneId,
+      scenario: "ambiguous_outage",
+      publishToChain: false
+    });
 
     const simulation = await runDemoSimulation({
       walletAddress: wallet.address,
       nonce: challenge.nonce,
       signature: await wallet.signMessage(challenge.message),
       zoneId,
-      scenario: "ambiguous_outage"
+      scenario: "ambiguous_outage",
+      publishToChain: false
     });
 
     expect(simulation.policyDecision.decision).toBe("escalate");
@@ -65,14 +77,53 @@ describe("judge demo simulation", () => {
   it("rejects an authorization signature from a different wallet", async () => {
     const wallet = Wallet.createRandom();
     const attacker = Wallet.createRandom();
-    const challenge = createDemoWalletChallenge(wallet.address);
+    const challenge = createDemoWalletChallenge({
+      walletAddress: wallet.address,
+      zoneId,
+      scenario: "restoration",
+      publishToChain: false
+    });
 
     await expect(runDemoSimulation({
       walletAddress: wallet.address,
       nonce: challenge.nonce,
       signature: await attacker.signMessage(challenge.message),
       zoneId,
-      scenario: "restoration"
+      scenario: "restoration",
+      publishToChain: false
     })).rejects.toMatchObject({ code: "DEMO_BAD_SIGNATURE" });
+  });
+
+  it("rejects live publication unless the deployment explicitly enables it", () => {
+    const wallet = Wallet.createRandom();
+
+    expect(() => createDemoWalletChallenge({
+      walletAddress: wallet.address,
+      zoneId,
+      scenario: "confirmed_outage",
+      publishToChain: true
+    })).toThrowError("Live BOT Chain publishing is not enabled");
+  });
+
+  it("binds a live publication choice to the signed challenge", async () => {
+    process.env.GRIDPROOF_DEMO_ALLOW_CHAIN_WRITE = "true";
+    const wallet = Wallet.createRandom();
+    const challenge = createDemoWalletChallenge({
+      walletAddress: wallet.address,
+      zoneId,
+      scenario: "confirmed_outage",
+      publishToChain: true
+    });
+
+    expect(challenge.chainMode).toBe("live");
+    expect(challenge.message).toContain("authorize the GridProof backend relayer");
+    await expect(runDemoSimulation({
+      walletAddress: wallet.address,
+      nonce: challenge.nonce,
+      signature: await wallet.signMessage(challenge.message),
+      zoneId,
+      scenario: "confirmed_outage",
+      publishToChain: false
+    })).rejects.toMatchObject({ code: "DEMO_CHALLENGE_MISMATCH" });
   });
 });

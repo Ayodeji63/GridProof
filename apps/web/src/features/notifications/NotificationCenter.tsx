@@ -27,17 +27,24 @@ export function NotificationCenter() {
     retry: (failureCount, error) => !isAuthenticationError(error) && failureCount < 1,
     refetchInterval: 15_000
   });
+  const zonesQuery = useQuery({ queryKey: ["zones"], queryFn: apiClient.zones, retry: 1 });
 
   const notifications = notificationsQuery.data?.notifications ?? [];
+  const zones = zonesQuery.data?.zones ?? [];
+  const zoneByReference = useMemo(
+    () => new Map(zones.flatMap((zone) => [[zone.id, zone], [zone.zoneKey, zone]] as const)),
+    [zones]
+  );
   const filteredNotifications = useMemo(
     () => notifications.filter((notification) => matchesFilters(
       notification,
       search,
       kindFilter,
       audienceFilter,
-      deliveryFilter
+      deliveryFilter,
+      typeof notification.payload.zoneId === "string" ? zoneByReference.get(notification.payload.zoneId) : undefined
     )),
-    [audienceFilter, deliveryFilter, kindFilter, notifications, search]
+    [audienceFilter, deliveryFilter, kindFilter, notifications, search, zoneByReference]
   );
   const totalPages = Math.max(1, Math.ceil(filteredNotifications.length / NOTIFICATIONS_PER_PAGE));
   const currentPage = Math.min(page, totalPages);
@@ -179,8 +186,10 @@ export function NotificationCenter() {
       <div className="notification-list">
         {visibleNotifications.map((notification) => {
           const zoneReference = typeof notification.payload.zoneId === "string" ? notification.payload.zoneId : null;
-          const zoneId = zoneReference && isUuid(zoneReference) ? zoneReference : null;
+          const feeder = zoneReference ? zoneByReference.get(zoneReference) : undefined;
+          const zoneId = feeder?.id ?? (zoneReference && isUuid(zoneReference) ? zoneReference : null);
           const txHash = typeof notification.payload.txHash === "string" ? notification.payload.txHash : null;
+          const epochStart = typeof notification.payload.epochStart === "string" ? notification.payload.epochStart : null;
           const eventState = getEventState(notification);
           const deliveryState = getDeliveryState(notification);
           const EventIcon = eventState.icon;
@@ -200,7 +209,7 @@ export function NotificationCenter() {
                   <span className="status-badge">{audienceLabel(notification.audience)}</span>
                 </div>
                 <h2>{notification.title}</h2>
-                <p>{notification.message}</p>
+                <p>{notificationMessage(notification, feeder)}</p>
                 <dl>
                   <div>
                     <dt>Created</dt>
@@ -217,10 +226,22 @@ export function NotificationCenter() {
                     </div>
                   ) : null}
                   {zoneReference ? (
-                    <div>
-                      <dt>{zoneId ? "Zone" : "Chain zone key"}</dt>
-                      <dd className="mono">{zoneReference}</dd>
-                    </div>
+                    <>
+                      <div>
+                        <dt>Feeder</dt>
+                        <dd>{feeder?.name ?? "Unknown feeder"}</dd>
+                      </div>
+                      {feeder ? (
+                        <div>
+                          <dt>Feeder code</dt>
+                          <dd className="mono">{feeder.discosFeederCode}</dd>
+                        </div>
+                      ) : null}
+                      <div>
+                        <dt>{zoneId ? "Zone ID" : "Chain zone key"}</dt>
+                        <dd className="mono">{zoneId ?? zoneReference}</dd>
+                      </div>
+                    </>
                   ) : null}
                   {txHash ? (
                     <div>
@@ -238,7 +259,7 @@ export function NotificationCenter() {
               </div>
               <div className="action-row">
                 {zoneId ? (
-                  <Link className="button-link" to={`/proof/${zoneId}/latest`}>
+                  <Link className="button-link" to={`/proof/${zoneId}/${epochStart ? encodeURIComponent(epochStart) : "latest"}`}>
                     <ExternalLink size={18} aria-hidden="true" />
                     Open proof
                   </Link>
@@ -341,6 +362,16 @@ function audienceLabel(audience: NotificationRecord["audience"]): string {
   return "Reviewer notice";
 }
 
+function notificationMessage(
+  notification: NotificationRecord,
+  feeder?: { name: string; discosFeederCode: string }
+): string {
+  if (!feeder || notification.kind !== "chain_committed") return notification.message;
+  const status = typeof notification.payload.status === "string" ? notification.payload.status : null;
+  if (!status) return notification.message;
+  return `${feeder.name} (${feeder.discosFeederCode}) chain commitment is ${status}.`;
+}
+
 function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
@@ -350,7 +381,8 @@ function matchesFilters(
   search: string,
   kindFilter: KindFilter,
   audienceFilter: AudienceFilter,
-  deliveryFilter: DeliveryFilter
+  deliveryFilter: DeliveryFilter,
+  feeder?: { name: string; discosFeederCode: string }
 ): boolean {
   if (kindFilter !== "all" && notification.kind !== kindFilter) return false;
   if (audienceFilter !== "all" && notification.audience !== audienceFilter) return false;
@@ -368,6 +400,8 @@ function matchesFilters(
   return [
     notification.title,
     notification.message,
+    feeder?.name ?? "",
+    feeder?.discosFeederCode ?? "",
     notification.lastError ?? "",
     ...payloadValues
   ].some((value) => value.toLowerCase().includes(query));

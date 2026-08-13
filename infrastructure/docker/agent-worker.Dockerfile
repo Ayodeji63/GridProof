@@ -16,7 +16,6 @@ COPY packages/ai/package.json packages/ai/package.json
 COPY packages/blockchain-client/package.json packages/blockchain-client/package.json
 COPY packages/config/package.json packages/config/package.json
 COPY packages/shared-types/package.json packages/shared-types/package.json
-COPY gridproof-contracts/packages/contracts/package.json gridproof-contracts/packages/contracts/package.json
 COPY tests/e2e/package.json tests/e2e/package.json
 
 RUN pnpm install --frozen-lockfile

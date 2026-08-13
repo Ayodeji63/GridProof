@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ReviewQueue } from "./ReviewQueue.js";
 import { apiClient } from "../../lib/api-client.js";
 import { ApiError } from "../../lib/api-error.js";
@@ -15,12 +15,14 @@ import { ApiError } from "../../lib/api-error.js";
 vi.mock("../../lib/api-client.js", () => ({
   apiClient: {
     reviewQueue: vi.fn(),
-    resolveReview: vi.fn()
+    resolveReview: vi.fn(),
+    zones: vi.fn()
   }
 }));
 
 const reviewQueueMock = vi.mocked(apiClient.reviewQueue);
 const resolveReviewMock = vi.mocked(apiClient.resolveReview);
+const zonesMock = vi.mocked(apiClient.zones);
 
 const candidate = {
   id: "c04ac0c9-73b8-49f0-97fd-52c77a38bd77",
@@ -59,6 +61,21 @@ describe("ReviewQueue", () => {
     vi.clearAllMocks();
   });
 
+  beforeEach(() => {
+    zonesMock.mockResolvedValue({
+      zones: [{
+        id: candidate.zoneId,
+        zoneKey: `0x${"1".repeat(64)}`,
+        name: "Akure Feeder A",
+        discosFeederCode: "BEDC-AKR-01",
+        region: "Ondo",
+        centroid: { lat: 7.25, lng: 5.19 },
+        latestStatus: "grid_up",
+        latestUptimeBps: 9800
+      }]
+    });
+  });
+
   it("renders an honest empty state when there are no escalations", async () => {
     reviewQueueMock.mockResolvedValue({ items: [] });
 
@@ -82,6 +99,9 @@ describe("ReviewQueue", () => {
     container = renderReviewQueue();
 
     await waitFor(() => expect(container?.textContent).toContain("Possible restoration"));
+
+    expect(container.textContent).toContain("Akure Feeder A");
+    expect(container.textContent).toContain("BEDC-AKR-01");
 
     const approve = buttonByText(container, "Approve");
     expect(approve.disabled).toBe(true);
