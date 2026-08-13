@@ -340,7 +340,7 @@ It builds only `apps/web` and serves the Vite output from `apps/web/dist`.
 2. Leave the framework as Vite.
 3. Confirm the build settings from `vercel.json`:
    - Install command: `pnpm install --frozen-lockfile`
-   - Build command: `pnpm --filter @gridproof/web build`
+   - Build command: `pnpm --filter @gridproof/shared-types build && pnpm --filter @gridproof/web build`
    - Output directory: `apps/web/dist`
 4. Set the web environment variables.
 5. Deploy.
