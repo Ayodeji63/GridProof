@@ -30,8 +30,8 @@ test("browser demo flow: sensor proof, reporter escalation, reviewer approval, a
   await expect(page.getByText("Waiting for BOT Chain transaction")).toBeVisible();
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "GridProof Operations" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open proof explorer" }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Feeder operations" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "View proof" }).first()).toBeVisible();
 
   await saveToken(page, reporterToken);
   await page.goto("/report");
